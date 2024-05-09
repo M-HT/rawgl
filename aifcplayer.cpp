@@ -39,7 +39,7 @@ bool AifcPlayer::play(int mixRate, const char *path, uint32_t startOffset) {
 						break;
 					}
 					debug(DBG_SND, "AIFF-C channels %d rate %d bits %d", channels, rate, bits);
-					_rate.reset(rate, mixRate);
+					_rate.reset(mixRate, rate);
 				} else if (memcmp(buf, "SSND", 4) == 0) {
 					_f.readUint32BE(); // block offset
 					_f.readUint32BE(); // block size

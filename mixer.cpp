@@ -187,7 +187,10 @@ static const uint8_t *loadWav(const uint8_t *data, int &freq, int &len, bool &bi
 
 struct Mixer_impl {
 
-	static const int kMixFreq = 44100;
+#if SDL_VERSIONNUM(SDL_MIXER_MAJOR_VERSION, SDL_MIXER_MINOR_VERSION, SDL_MIXER_PATCHLEVEL) < SDL_VERSIONNUM(2,0,2)
+	static const
+#endif
+	int kMixFreq = 44100;
 	static const SDL_AudioFormat kMixFormat = AUDIO_S16SYS;
 	static const int kMixSoundChannels = 2;
 	static const int kMixBufSize = 4096;
@@ -209,6 +212,17 @@ struct Mixer_impl {
 		_sfx = 0;
 
 		Mix_Init(MIX_INIT_OGG | MIX_INIT_FLUIDSYNTH);
+#if SDL_VERSIONNUM(SDL_MIXER_MAJOR_VERSION, SDL_MIXER_MINOR_VERSION, SDL_MIXER_PATCHLEVEL) >= SDL_VERSIONNUM(2,0,2)
+		const SDL_version *link_version = Mix_Linked_Version();
+		if (SDL_VERSIONNUM(link_version->major, link_version->minor, link_version->patch) >= SDL_VERSIONNUM(2,0,2)) {
+			if (Mix_OpenAudioDevice(kMixFreq, kMixFormat, kMixSoundChannels, kMixBufSize, NULL, SDL_AUDIO_ALLOW_ANY_CHANGE & ~(SDL_AUDIO_ALLOW_FORMAT_CHANGE | SDL_AUDIO_ALLOW_CHANNELS_CHANGE)) < 0) {
+				warning("Mix_OpenAudio failed: %s", Mix_GetError());
+			} else {
+				Mix_QuerySpec(&kMixFreq, NULL, NULL);
+			}
+		}
+		else
+#endif
 		if (Mix_OpenAudio(kMixFreq, kMixFormat, kMixSoundChannels, kMixBufSize) < 0) {
 			warning("Mix_OpenAudio failed: %s", Mix_GetError());
 		}
@@ -474,7 +488,7 @@ void Mixer::playAifcMusic(const char *path, uint32_t offset) {
 	}
 	if (_impl) {
 		_impl->stopAifcMusic();
-		if (_aifc->play(Mixer_impl::kMixFreq, path, offset)) {
+		if (_aifc->play(_impl->kMixFreq, path, offset)) {
 			_impl->playAifcMusic(_aifc);
 		}
 	}
