@@ -64,8 +64,7 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 	} else {
 		flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
-	_window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowW, windowH, flags);
-	SDL_GetWindowSize(_window, &_w, &_h);
+	_window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowW, windowH, flags | SDL_WINDOW_HIDDEN);
 
 	if (dm->opengl) {
 		_glcontext = SDL_GL_CreateContext(_window);
@@ -75,6 +74,8 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 		SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
 		SDL_RenderClear(_renderer);
 	}
+	SDL_ShowWindow(_window);
+	SDL_GetWindowSize(_window, &_w, &_h);
 	_aspectRatio[0] = _aspectRatio[1] = 0.;
 	_aspectRatio[2] = _aspectRatio[3] = 1.;
 	if (dm->mode == DisplayMode::FULLSCREEN_AR) {
