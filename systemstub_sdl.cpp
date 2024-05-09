@@ -245,7 +245,9 @@ void SystemStub_SDL::processEvents() {
 				}
 				break;
 			}
-			_pi.lastChar = ev.key.keysym.sym;
+			if (ev.key.keysym.sym < 128) {
+				_pi.lastChar = ev.key.keysym.sym;
+			}
 			switch(ev.key.keysym.sym) {
 			case SDLK_LEFT:
 				_pi.dirMask |= PlayerInput::DIR_LEFT;

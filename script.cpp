@@ -593,6 +593,23 @@ void Script::updateInput() {
 		if (c == 8 || /*c == 0xD ||*/ c == 0 || (c >= 'a' && c <= 'z')) {
 			_scriptVars[VAR_LAST_KEYCHAR] = c & ~0x20;
 			_stub->_pi.lastChar = 0;
+			_stub->_pi.pause = false;
+			if (c >= 'a' && c <= 'z') {
+				switch (_res->getDataType()) {
+					case Resource::DT_3DO:
+						// only four letter can be entered directly
+						static const char keyTable3DO[26] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'A', 0, 0, 0, 0, 0, 'B', 0, 'C', 0, 0, 0, 'D', 0, 0};
+						_scriptVars[VAR_LAST_KEYCHAR] = keyTable3DO[c - 'a'];
+						break;
+					case Resource::DT_15TH_EDITION:
+					case Resource::DT_20TH_EDITION:
+						static const char keyTableNth[26] = {'K', 'D', 'C', 0, 0, 'F', 'G', 'H', 0, 0, 'L', 0, 0, 'B', 0, 'T', 0, 'R', 0, 'J', 0, 0, 0, 'X', 0, 0};
+						_scriptVars[VAR_LAST_KEYCHAR] = keyTableNth[c - 'a'];
+						break;
+					default:
+						break;
+				}
+			}
 		}
 	}
 	int16_t lr = 0;
