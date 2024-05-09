@@ -180,13 +180,13 @@ void Engine::doThreeScreens() {
 	static const int bitmaps[] = { 67, 68, 69, -1 };
 	for (int i = 0; bitmaps[i] != -1 && !_stub->_pi.quit; ++i) {
 		_res.loadBmp(bitmaps[i]);
-		_vid.updateDisplay(0, _stub);
 		while (!_stub->_pi.quit) {
 			_stub->processEvents();
 			if (_stub->_pi.action) {
 				_stub->_pi.action = false;
 				break;
 			}
+			_vid.updateDisplay(0, _stub);
 			_stub->sleep(50);
 		}
 	}
