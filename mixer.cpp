@@ -9,6 +9,7 @@
 #include <map>
 #include "aifcplayer.h"
 #include "mixer.h"
+#include "mixer_platform.h"
 #include "sfxplayer.h"
 #include "util.h"
 
@@ -32,11 +33,6 @@ static const bool kAmigaStereoChannels = false; // 0,3:left 1,2:right
 
 static int16_t toS16(int a) {
 	return ((a << 8) | a) - 32768;
-}
-
-static int16_t mixS16(int sample1, int sample2) {
-	const int sample = sample1 + sample2;
-	return sample < -32768 ? -32768 : ((sample > 32767 ? 32767 : sample));
 }
 
 struct MixerChannel {

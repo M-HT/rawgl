@@ -6,6 +6,7 @@
 
 #include "sfxplayer.h"
 #include "mixer.h"
+#include "mixer_platform.h"
 #include "resource.h"
 #include "systemstub.h"
 #include "util.h"
@@ -98,8 +99,7 @@ static void mixChannel(int16_t &s, SfxChannel *ch) {
 		}
 	}
 	int sample = ch->pos.interpolate((int8_t)ch->sampleData[pos1], (int8_t)ch->sampleData[pos2]);
-	sample = s + toS16(sample * ch->volume / 64);
-	s = (sample < -32768 ? -32768 : (sample > 32767 ? 32767 : sample));
+	s = mixS16(s, toS16(sample * ch->volume / 64));
 }
 
 void SfxPlayer::mixSamples(int16_t *buf, int len) {
