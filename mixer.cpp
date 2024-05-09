@@ -5,7 +5,6 @@
  */
 
 #include <SDL.h>
-#define MIX_INIT_FLUIDSYNTH MIX_INIT_MID // renamed with SDL2_mixer >= 2.0.2
 #include <SDL_mixer.h>
 #include <map>
 #include "aifcplayer.h"
@@ -201,6 +200,7 @@ struct Mixer_impl {
 	MixerChannel _channels[kMixChannels];
 	SfxPlayer *_sfx;
 	std::map<int, Mix_Chunk *> _preloads; // AIFF preloads (3DO)
+	MixerType _mixerType;
 
 	void init(MixerType mixerType) {
 		memset(_sounds, 0, sizeof(_sounds));
@@ -210,8 +210,24 @@ struct Mixer_impl {
 			_channels[i]._mixWav = &MixerChannel::mixWav<8, false>;
 		}
 		_sfx = 0;
+		_mixerType = mixerType;
 
-		Mix_Init(MIX_INIT_OGG | MIX_INIT_FLUIDSYNTH);
+		int flags = 0;
+		switch (mixerType) {
+		case kMixerTypeWavMidi:
+#if SDL_VERSIONNUM(SDL_MIXER_MAJOR_VERSION, SDL_MIXER_MINOR_VERSION, SDL_MIXER_PATCHLEVEL) >= SDL_VERSIONNUM(2,0,2)
+			flags |= MIX_INIT_MID; // renamed with SDL2_mixer >= 2.0.2
+#else
+			flags |= MIX_INIT_FLUIDSYNTH;
+#endif
+			break;
+		case kMixerTypeWavOgg:
+			flags |= MIX_INIT_OGG;
+			break;
+		default:
+			break;
+		}
+		Mix_Init(flags);
 #if SDL_VERSIONNUM(SDL_MIXER_MAJOR_VERSION, SDL_MIXER_MINOR_VERSION, SDL_MIXER_PATCHLEVEL) >= SDL_VERSIONNUM(2,0,2)
 		const SDL_version *link_version = Mix_Linked_Version();
 		if (SDL_VERSIONNUM(link_version->major, link_version->minor, link_version->patch) >= SDL_VERSIONNUM(2,0,2)) {
@@ -231,6 +247,8 @@ struct Mixer_impl {
 			Mix_HookMusic(mixAudio, this);
 			break;
 		case kMixerTypeWav:
+		case kMixerTypeWavMidi:
+		case kMixerTypeWavOgg:
 			Mix_SetPostMix(mixAudioWav, this);
 			break;
 		case kMixerTypeAiff:
@@ -386,6 +404,9 @@ struct Mixer_impl {
 		}
 		stopMusic();
 		stopSfxMusic();
+		if (_mixerType == kMixerTypeAiff) {
+			stopAifcMusic();
+		}
 		for (std::map<int, Mix_Chunk *>::iterator it = _preloads.begin(); it != _preloads.end(); ++it) {
 			debug(DBG_SND, "Flush preload %d", it->first);
 			Mix_FreeChunk(it->second);

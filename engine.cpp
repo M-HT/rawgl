@@ -115,9 +115,13 @@ void Engine::setup(Language lang, int graphicsType, const char *scalerName, int 
 		}
 		break;
 	case Resource::DT_WIN31:
+		mixerType = kMixerTypeWavMidi;
+		break;
 	case Resource::DT_15TH_EDITION:
-	case Resource::DT_20TH_EDITION:
 		mixerType = kMixerTypeWav;
+		break;
+	case Resource::DT_20TH_EDITION:
+		mixerType = kMixerTypeWavOgg;
 		break;
 	case Resource::DT_3DO:
 		mixerType = kMixerTypeAiff;

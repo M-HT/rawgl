@@ -16,6 +16,8 @@ struct Mixer_impl;
 enum MixerType {
 	kMixerTypeRaw,
 	kMixerTypeWav,
+	kMixerTypeWavMidi,
+	kMixerTypeWavOgg,
 	kMixerTypeAiff
 };
 
