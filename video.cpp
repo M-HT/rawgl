@@ -310,7 +310,7 @@ void Video::drawString(uint8_t color, uint16_t x, uint16_t y, uint16_t strId) {
 		for (int i = 0; i < NTH_EDITION_STRINGS_COUNT; ++i) {
 			if (Video::_stringsId15th[i] == strId) {
 				str = _res->getString(i);
-				if (str) {
+				if (str && !(str[0] == ' ' && str[1] == 0)) {
 					escapedChars = true;
 				} else {
 					str = Video::_stringsTable15th[i];
@@ -318,6 +318,7 @@ void Video::drawString(uint8_t color, uint16_t x, uint16_t y, uint16_t strId) {
 				break;
 			}
 		}
+		if (strId == 0x12C || strId == 0x12D) x--;
 	} else if (_res->getDataType() == Resource::DT_WIN31) {
 		str = _res->getString(strId);
 	} else if (_res->getDataType() == Resource::DT_3DO) {
