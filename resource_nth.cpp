@@ -69,7 +69,7 @@ struct Resource15th: ResourceNth {
 		if (num >= 3000) {
 			snprintf(name, sizeof(name), "e%04d.bmp", num);
 		} else {
-			snprintf(name, sizeof(name), "file%03d.bmp", num);
+			snprintf(name, sizeof(name), "file%03d.bmp", (int16_t)num);
 		}
 		return load(name);
 	}
@@ -139,7 +139,7 @@ struct Resource15th: ResourceNth {
 				return;
 			}
 			char path[MAXPATHLEN];
-			snprintf(path, sizeof(path), "%s/lang_%s", _menuPath, name);
+			if (snprintf(path, sizeof(path), "%s/lang_%s", _menuPath, name) >= (int)sizeof(path)) path[sizeof(path) - 1] = 0;
 			File f;
 			if (f.open(path)) {
 				const int size = f.size();
