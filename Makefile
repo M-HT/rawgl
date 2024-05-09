@@ -5,6 +5,11 @@ SDL_LIBS = `sdl2-config --libs` -lSDL2_mixer -lGL
 DEFINES = -DBYPASS_PROTECTION -DUSE_GL
 
 CXXFLAGS := -g -O -MMD -Wall -Wpedantic $(SDL_CFLAGS) $(DEFINES)
+LIBS := -lz
+ifdef USE_LIBADLMIDI
+	CXXFLAGS += -DUSE_LIBADLMIDI
+	LIBS += -lADLMIDI
+endif
 
 SRCS = aifcplayer.cpp bitmap.cpp file.cpp engine.cpp graphics_gl.cpp graphics_soft.cpp \
 	script.cpp mixer.cpp pak.cpp resource.cpp resource_nth.cpp \
@@ -15,7 +20,7 @@ OBJS = $(SRCS:.cpp=.o)
 DEPS = $(SRCS:.cpp=.d)
 
 rawgl: $(OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(SDL_LIBS) -lz
+	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(SDL_LIBS) $(LIBS)
 
 clean:
 	rm -f $(OBJS) $(DEPS)

@@ -12,6 +12,15 @@
 #include "sfxplayer.h"
 #include "util.h"
 
+#ifdef USE_LIBADLMIDI
+	#include "adlmidi.h"
+	#ifdef ADLMIDI_VERSION_MAJOR
+		#define ADLMIDI_VERSION_ATLEAST(major,minor,patchlevel) (ADLMIDI_VERSION_MAJOR > (major) || (ADLMIDI_VERSION_MAJOR == (major) && (ADLMIDI_VERSION_MINOR > (minor) || (ADLMIDI_VERSION_MINOR == (minor) && ADLMIDI_VERSION_PATCHLEVEL >= (patchlevel)))))
+	#else
+		#define ADLMIDI_VERSION_ATLEAST(major,minor,patchlevel) 0
+	#endif
+#endif
+
 enum {
 	TAG_RIFF = 0x46464952,
 	TAG_WAVE = 0x45564157,
@@ -202,6 +211,10 @@ struct Mixer_impl {
 	std::map<int, Mix_Chunk *> _preloads; // AIFF preloads (3DO)
 	MixerType _mixerType;
 
+#ifdef USE_LIBADLMIDI
+	struct ADL_MIDIPlayer *_adlHandle;
+#endif
+
 	void init(MixerType mixerType) {
 		memset(_sounds, 0, sizeof(_sounds));
 		_music = 0;
@@ -214,13 +227,15 @@ struct Mixer_impl {
 
 		int flags = 0;
 		switch (mixerType) {
+#ifndef USE_LIBADLMIDI
 		case kMixerTypeWavMidi:
-#if SDL_VERSIONNUM(SDL_MIXER_MAJOR_VERSION, SDL_MIXER_MINOR_VERSION, SDL_MIXER_PATCHLEVEL) >= SDL_VERSIONNUM(2,0,2)
+	#if SDL_VERSIONNUM(SDL_MIXER_MAJOR_VERSION, SDL_MIXER_MINOR_VERSION, SDL_MIXER_PATCHLEVEL) >= SDL_VERSIONNUM(2,0,2)
 			flags |= MIX_INIT_MID; // renamed with SDL2_mixer >= 2.0.2
-#else
+	#else
 			flags |= MIX_INIT_FLUIDSYNTH;
-#endif
+	#endif
 			break;
+#endif
 		case kMixerTypeWavOgg:
 			flags |= MIX_INIT_OGG;
 			break;
@@ -246,8 +261,13 @@ struct Mixer_impl {
 		case kMixerTypeRaw:
 			Mix_HookMusic(mixAudio, this);
 			break;
-		case kMixerTypeWav:
 		case kMixerTypeWavMidi:
+#ifdef USE_LIBADLMIDI
+			initAdlMidi();
+			Mix_HookMusic(mixAudioAdlMidi, this);
+#endif
+			/* fall-through */
+		case kMixerTypeWav:
 		case kMixerTypeWavOgg:
 			Mix_SetPostMix(mixAudioWav, this);
 			break;
@@ -260,7 +280,54 @@ struct Mixer_impl {
 		stopAll();
 		Mix_CloseAudio();
 		Mix_Quit();
+#ifdef USE_LIBADLMIDI
+		if (_adlHandle) {
+			adl_close(_adlHandle);
+			_adlHandle = 0;
+		}
+#endif
 	}
+
+#ifdef USE_LIBADLMIDI
+	void initAdlMidi() {
+		_adlHandle = adl_init(kMixFreq);
+		if (!_adlHandle) return;
+
+		if (adl_setNumChips(_adlHandle, 1)) {
+			adl_close(_adlHandle);
+			_adlHandle = 0;
+			return;
+		}
+
+		adl_setVolumeRangeModel(_adlHandle, ADLMIDI_VolumeModel_Generic);
+
+	#if ADLMIDI_VERSION_ATLEAST(1,3,2)
+		adl_switchEmulator(_adlHandle, ADLMIDI_EMU_DOSBOX);
+	#endif
+
+		if (adl_setBank(_adlHandle, 77)) {
+			adl_close(_adlHandle);
+			_adlHandle = 0;
+			return;
+		}
+
+		adl_reset(_adlHandle);
+
+		adl_setLoopEnabled(_adlHandle, 0);
+	}
+
+	static void mixAudioAdlMidi(void *data, uint8_t *s16buf, int len) {
+		Mixer_impl *mixer = (Mixer_impl *)data;
+		if (mixer->_adlHandle) {
+			int numSamples = adl_play(mixer->_adlHandle, len / sizeof(int16_t), (short *) s16buf);
+			len -= numSamples * sizeof(int16_t);
+			s16buf += numSamples * sizeof(int16_t);
+		}
+		if (len) {
+			memset(s16buf, 0, len);
+		}
+	}
+#endif
 
 	void update() {
 		for (int i = 0; i < kMixChannels; ++i) {
@@ -317,15 +384,41 @@ struct Mixer_impl {
 
 	void playMusic(const char *path, int loops = 0) {
 		stopMusic();
+#ifdef USE_LIBADLMIDI
+		if (_mixerType == kMixerTypeWavMidi) {
+			if (_adlHandle) {
+				SDL_LockAudio();
+				if (adl_openFile(_adlHandle, path)) {
+					warning("Failed to load music '%s', %s", path, adl_errorInfo(_adlHandle));
+				}
+				SDL_UnlockAudio();
+			}
+			return;
+		}
+#endif
 		_music = Mix_LoadMUS(path);
 		if (_music) {
-			Mix_VolumeMusic(MIX_MAX_VOLUME / 2);
+			if (_mixerType == kMixerTypeWavMidi) {
+				Mix_VolumeMusic(MIX_MAX_VOLUME/2);
+			} else {
+				Mix_VolumeMusic(MIX_MAX_VOLUME);
+			}
 			Mix_PlayMusic(_music, loops);
 		} else {
 			warning("Failed to load music '%s', %s", path, Mix_GetError());
 		}
 	}
 	void stopMusic() {
+#ifdef USE_LIBADLMIDI
+		if (_mixerType == kMixerTypeWavMidi) {
+			if (_adlHandle) {
+				SDL_LockAudio();
+				adl_reset(_adlHandle);
+				SDL_UnlockAudio();
+			}
+			return;
+		}
+#endif
 		Mix_HaltMusic();
 		Mix_FreeMusic(_music);
 		_music = 0;
