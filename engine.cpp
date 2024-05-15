@@ -143,6 +143,7 @@ void Engine::setup(Language lang, int graphicsType, const char *scalerName, int 
 	case Resource::DT_AMIGA:
 	case Resource::DT_ATARI:
 	case Resource::DT_WIN31:
+	case Resource::DT_MAC:
 		_partNum = kPartCopyProtection;
 		break;
 	default:

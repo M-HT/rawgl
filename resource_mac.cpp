@@ -4,6 +4,8 @@
 #include "util.h"
 
 const char *ResourceMac::FILE017 = "FILE17.mat";
+const char *ResourceMac::DELPH1 = "delph1.pict";
+const char *ResourceMac::OOTW1 = "ootw1.pict";
 const char *ResourceMac::INTRO2 = "intro2";
 const char *ResourceMac::ENDSONG = "end song";
 const unsigned char ResourceMac::TYPE_MIDI[4] = { 'M', 'I', 'D', 'I' };
@@ -132,6 +134,10 @@ uint8_t *ResourceMac::loadFile(int num, uint8_t *dst, uint32_t *size, bool aiff)
 		snprintf(name, sizeof(name), "FILE%d.AIFF", num);
 	} else if (num == 17) {
 		strcpy(name, FILE017);
+	} else if (num == 71) {
+		strcpy(name, DELPH1);
+	} else if (num == 83) {
+		strcpy(name, OOTW1);
 	} else {
 		snprintf(name, sizeof(name), "FILE%04d", num);
 	}

@@ -31,6 +31,8 @@ struct ResourceMacEntry {
 struct ResourceMac {
 
 	static const char *FILE017;
+	static const char *DELPH1;
+	static const char *OOTW1;
 	static const char *INTRO2;
 	static const char *ENDSONG;
 	static const unsigned char TYPE_MIDI[4];

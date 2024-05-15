@@ -445,12 +445,11 @@ void Resource::update(uint16_t num, PreloadSoundProc preloadSound, void *data) {
 		}
 		/* fall-through */
 	case DT_WIN31:
+	case DT_MAC:
 		if (num == 71 || num == 83) {
 			loadBmp(num);
 			break;
 		}
-		/* fall-through */
-	case DT_MAC:
 		for (int i = 0; _memListBmp[i] != -1; ++i) {
 			if (num == _memListBmp[i]) {
 				loadBmp(num);
@@ -512,9 +511,15 @@ void Resource::loadBmp(int num) {
 			case 70:
 				*p = 8;
 				break;
+			case 71:
+				*p = 15;
+				break;
 			case 72:
 			case 73:
 				*p = 25;
+				break;
+			case 83:
+				*p = 9;
 				break;
 			case 144:
 				*p = 3;
