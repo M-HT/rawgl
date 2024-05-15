@@ -38,7 +38,7 @@ void Script::init() {
 		// these 2 variables are set by the engine executable
 		_scriptVars[0xDC] = 33;
 #endif
-		if (_res->getDataType() == Resource::DT_DOS || _res->getDataType() == Resource::DT_WIN31) {
+		if (_res->getDataType() == Resource::DT_DOS || _res->getDataType() == Resource::DT_WIN31 || _res->getDataType() == Resource::DT_MAC) {
 			_scriptVars[0xE4] = 20;
 		}
 	}
@@ -400,6 +400,10 @@ void Script::restartAt(int part, int pos) {
 		// Use "Another World" title screen if language is set to French
 		const bool awTitleScreen = (_vid->_stringsTable == Video::_stringsTableFr);
 		_scriptVars[0x54] = awTitleScreen ? 0x1 : 0x81;
+	}
+	if (_res->getDataType() == Resource::DT_MAC && part > kPartWater && !_res->_hasPasswordScreen) {
+		// Macintosh demo version
+		part = kPartWater;
 	}
 	_res->setupPart(part);
 	memset(_scriptTasks, 0xFF, sizeof(_scriptTasks));

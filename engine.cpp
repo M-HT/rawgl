@@ -136,6 +136,7 @@ void Engine::setup(Language lang, int graphicsType, const char *scalerName, int 
 #ifndef BYPASS_PROTECTION
 	switch (_res.getDataType()) {
 	case Resource::DT_DOS:
+	case Resource::DT_MAC:
 		if (!_res._hasPasswordScreen) {
 			break;
 		}
@@ -143,7 +144,6 @@ void Engine::setup(Language lang, int graphicsType, const char *scalerName, int 
 	case Resource::DT_AMIGA:
 	case Resource::DT_ATARI:
 	case Resource::DT_WIN31:
-	case Resource::DT_MAC:
 		_partNum = kPartCopyProtection;
 		break;
 	default:

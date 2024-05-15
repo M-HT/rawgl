@@ -235,9 +235,11 @@ void Resource::readEntries() {
 		}
 		break;
 	case DT_MAC:
+		_hasPasswordScreen = false; // demo version does not have the resources
 		_numMemList = ENTRIES_COUNT;
 		_mac = new ResourceMac(_dataDir);
 		if (_mac->load()) {
+			_hasPasswordScreen = loadDat(_memListParts[8][1]); // 16008 bytecode
 			return;
 		}
 		break;
