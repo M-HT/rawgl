@@ -1,4 +1,5 @@
 
+#include <sys/stat.h>
 #include "file.h"
 #include "resource_mac.h"
 #include "util.h"
@@ -15,14 +16,22 @@ const unsigned char ResourceMac::TYPE_snd[4]  = { 's', 'n', 'd', ' ' };
 ResourceMac::ResourceMac(const char *filePath)
 	: _dataOffset(0), _types(0), _entries(0) {
 	_f.open(filePath);
-	_dirPath = 0;
+	_dataPath = 0;
 	const char *sep = strrchr(filePath, '/');
 	if (sep) {
-		const size_t len = sep - filePath;
-		_dirPath = (char *)malloc(len + 1);
-		if (_dirPath) {
-			memcpy(_dirPath, filePath, len);
-			_dirPath[len] = 0;
+		const size_t len = 1 + sep - filePath;
+		_dataPath = (char *)malloc(len + 5);
+		if (_dataPath) {
+			memcpy(_dataPath, filePath, len);
+			strcpy(_dataPath + len, "data");
+			struct stat s;
+			if (!(stat(_dataPath, &s) == 0 && S_ISDIR(s.st_mode))) {
+				strcpy(_dataPath + len, "Data");
+				if (!(stat(_dataPath, &s) == 0 && S_ISDIR(s.st_mode))) {
+					free(_dataPath);
+					_dataPath = 0;
+				}
+			}
 		}
 	}
 }
@@ -156,11 +165,9 @@ uint8_t *ResourceMac::loadFile(int num, uint8_t *dst, uint32_t *size, bool aiff)
 		_f.read(dst, dataSize);
 		return dst;
 	}
-	if (_dirPath) {
-		char dataPath[MAXPATHLEN];
-		snprintf(dataPath, sizeof(dataPath), "%s/data", _dirPath);
+	if (_dataPath) {
 		File f;
-		if (f.open(name, dataPath)) {
+		if (f.open(name, _dataPath)) {
 			*size = f.size();
 			if (!dst) {
 				dst = (uint8_t *)malloc(*size);

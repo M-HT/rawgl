@@ -40,7 +40,7 @@ struct ResourceMac {
 	static const unsigned char TYPE_snd[4];
 
 	File _f;
-	char *_dirPath;
+	char *_dataPath;
 
 	uint32_t _dataOffset;
 	ResourceMacMap _map;
