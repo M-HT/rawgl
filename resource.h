@@ -151,6 +151,7 @@ struct Resource {
 	uint8_t *loadWav(int num);
 	const char *getString(int num);
 	const char *getMusicPath(int num, char *buf, int bufSize, uint32_t *offset = 0);
+	const uint8_t *getInstrument(int num, uint32_t *offset);
 	void setupPart(int part);
 	void allocMemBlock();
 	void freeMemBlock();

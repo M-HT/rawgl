@@ -292,7 +292,7 @@ struct Mixer_impl {
 			Mix_HookMusic(mixAudio, this);
 			break;
 		case kMixerTypeMac:
-			Mix_SetPostMix(mixAudioMac, this);
+			Mix_HookMusic(mixAudioMac, this);
 			break;
 		case kMixerTypeWavMidi:
 #ifdef USE_LIBADLMIDI
@@ -518,18 +518,20 @@ struct Mixer_impl {
 
 	void mixChannelsMac(int16_t *samples, int count) {
 		for (int i = 0; i < count; i += 2) {
-			int16_t sample = 0;
 			for (int j = 0; j < kMixChannels; ++j) {
-				_channels[j].mixMac(sample);
+				_channels[j].mixMac(samples[i]);
 			}
-			samples[i] = mixS16(samples[i], sample);
-			samples[i + 1] = mixS16(samples[i + 1], sample);
+			samples[i + 1] = samples[i];
 		}
 	}
 
 	static void mixAudioMac(void *data, uint8_t *s16buf, int len) {
+		memset(s16buf, 0, len);
 		Mixer_impl *mixer = (Mixer_impl *)data;
 		mixer->mixChannelsMac((int16_t *)s16buf, len / sizeof(int16_t));
+		if (mixer->_sfx) {
+			mixer->_sfx->readSamples((int16_t *)s16buf, len / sizeof(int16_t));
+		}
 	}
 
 	void mixChannelsWav(int16_t *samples, int count) {

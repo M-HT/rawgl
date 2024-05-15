@@ -22,7 +22,7 @@ Script::Script(Mixer *mix, Resource *res, SfxPlayer *ply, Video *vid)
 void Script::init() {
 	memset(_scriptVars, 0, sizeof(_scriptVars));
 	_fastMode = false;
-	_ply->_syncVar = &_scriptVars[VAR_MUSIC_SYNC];
+	_ply->setSyncVar(&_scriptVars[VAR_MUSIC_SYNC]);
 	_scriptPtr.byteSwap = _is3DO = (_res->getDataType() == Resource::DT_3DO);
 	if (_is3DO) {
 		_scriptVars[0xDB] = 1;
@@ -851,10 +851,7 @@ void Script::snd_playMusic(uint16_t resNum, uint16_t delay, uint8_t pos) {
 			}
 		}
 		break;
-	case Resource::DT_MAC:
-		// TODO
-		break;
-	default: // DT_AMIGA, DT_ATARI, DT_DOS
+	default: // DT_AMIGA, DT_ATARI, DT_DOS, DT_MAC
 		if (resNum != 0) {
 			_ply->loadSfxModule(resNum, delay, pos);
 			_ply->start();

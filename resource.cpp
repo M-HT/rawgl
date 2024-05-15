@@ -621,12 +621,24 @@ const char *Resource::getMusicPath(int num, char *buf, int bufSize, uint32_t *of
 			return _dataDir; // playing music from .ISO
 		}
 		break;
+	case DT_MAC:
+		return _mac->getMusic(num, offset);
 	default:
 		break;
 	}
 	if (name) {
 		snprintf(buf, bufSize, "%s/%s", _dataDir, name);
 		return buf;
+	}
+	return 0;
+}
+
+const uint8_t *Resource::getInstrument(int num, uint32_t *offset) {
+	switch (_dataType) {
+	case DT_MAC:
+		return _mac->getInstrument(num, offset);
+	default:
+		break;
 	}
 	return 0;
 }

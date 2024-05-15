@@ -4,6 +4,11 @@
 #include "util.h"
 
 const char *ResourceMac::FILE017 = "FILE17.mat";
+const char *ResourceMac::INTRO2 = "intro2";
+const char *ResourceMac::ENDSONG = "end song";
+const unsigned char ResourceMac::TYPE_MIDI[4] = { 'M', 'I', 'D', 'I' };
+const unsigned char ResourceMac::TYPE_INST[4] = { 'I', 'N', 'S', 'T' };
+const unsigned char ResourceMac::TYPE_snd[4]  = { 's', 'n', 'd', ' ' };
 
 ResourceMac::ResourceMac(const char *filePath)
 	: _dataOffset(0), _types(0), _entries(0) {
@@ -107,6 +112,19 @@ const ResourceMacEntry *ResourceMac::findEntry(const char *name) const {
 	return 0;
 }
 
+const ResourceMacEntry *ResourceMac::findEntry(const unsigned char typeId[4], uint16_t entryId) const {
+	for (int type = 0; type < _map.typesCount; ++type) {
+		if (memcmp(typeId, _types[type].id, 4) == 0) {
+			for (int i = 0; i < _types[type].count; ++i) {
+				if (entryId == _entries[type][i].id) {
+					return &_entries[type][i];
+				}
+			}
+		}
+	}
+	return 0;
+}
+
 uint8_t *ResourceMac::loadFile(int num, uint8_t *dst, uint32_t *size, bool aiff) {
 	char name[16];
 
@@ -151,4 +169,68 @@ uint8_t *ResourceMac::loadFile(int num, uint8_t *dst, uint32_t *size, bool aiff)
 	}
 	warning("Unable to load resource #%d", num);
 	return 0;
+}
+
+const char *ResourceMac::getMusic(int num, uint32_t *offset) {
+	const char *name = 0;
+	switch (num) {
+	case 7:
+		name = INTRO2;
+		break;
+	case 138:
+		name = ENDSONG;
+		break;
+	default:
+		return 0;
+	}
+	const ResourceMacEntry *e = findEntry(name);
+	uint8_t *dst = 0;
+	if (e) {
+		_f.seek(_dataOffset + e->dataOffset);
+		const uint32_t dataSize1 = _f.readUint32BE();
+		const uint16_t entryId = _f.readUint16BE();
+		const ResourceMacEntry *e2 = findEntry(TYPE_MIDI, entryId);
+		if (e2) {
+			_f.seek(_dataOffset + e2->dataOffset);
+			const uint32_t dataSize2 = _f.readUint32BE();
+			*offset = dataSize1;
+			dst = (uint8_t *)malloc(dataSize1 + dataSize2);
+			if (!dst) {
+				warning("Unable to allocate %d bytes", dataSize1 + dataSize2);
+				return 0;
+			}
+			_f.seek(_dataOffset + e->dataOffset + 4);
+			_f.read(dst, dataSize1);
+			_f.seek(_dataOffset + e2->dataOffset + 4);
+			_f.read(dst + dataSize1, dataSize2);
+		}
+	}
+	return (const char *)dst;
+}
+
+const uint8_t *ResourceMac::getInstrument(int num, uint32_t *offset)
+{
+	const ResourceMacEntry *e = findEntry(TYPE_INST, num);
+	uint8_t *dst = 0;
+	if (e) {
+		_f.seek(_dataOffset + e->dataOffset);
+		const uint32_t dataSize1 = _f.readUint32BE();
+		const uint16_t entryId = _f.readUint16BE();
+		const ResourceMacEntry *e2 = findEntry(TYPE_snd, entryId);
+		if (e2) {
+			_f.seek(_dataOffset + e2->dataOffset);
+			const uint32_t dataSize2 = _f.readUint32BE();
+			*offset = dataSize1;
+			dst = (uint8_t *)malloc(dataSize1 + dataSize2);
+			if (!dst) {
+				warning("Unable to allocate %d bytes", dataSize1 + dataSize2);
+				return 0;
+			}
+			_f.seek(_dataOffset + e->dataOffset + 4);
+			_f.read(dst, dataSize1);
+			_f.seek(_dataOffset + e2->dataOffset + 4);
+			_f.read(dst + dataSize1, dataSize2);
+		}
+	}
+	return (const uint8_t *)dst;
 }

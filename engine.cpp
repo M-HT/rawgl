@@ -14,8 +14,9 @@
 
 Engine::Engine(const char *dataDir, int partNum)
 	: _graphics(0), _stub(0), _script(&_mix, &_res, &_ply, &_vid), _mix(&_ply), _res(&_vid, dataDir),
-	_ply(&_res), _vid(&_res), _partNum(partNum) {
+	_ply(), _vid(&_res), _partNum(partNum) {
 	_res.detectVersion();
+	_ply.init(&_res);
 }
 
 static const int _restartPos[36 * 2] = {
