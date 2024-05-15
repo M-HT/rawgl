@@ -62,6 +62,7 @@ struct DemoJoy {
 struct ResourceNth;
 struct ResourceWin31;
 struct Resource3do;
+struct ResourceMac;
 struct Video;
 
 typedef void (*PreloadSoundProc)(void *userdata, int num, const uint8_t *data);
@@ -86,6 +87,7 @@ struct Resource {
 		DT_20TH_EDITION,
 		DT_WIN31,
 		DT_3DO,
+		DT_MAC,
 		DT_ATARI_DEMO, // ST Action Issue44 Disk28
 	};
 
@@ -123,6 +125,7 @@ struct Resource {
 	ResourceNth *_nth;
 	ResourceWin31 *_win31;
 	Resource3do *_3do;
+	ResourceMac *_mac;
 	Language _lang;
 	const AmigaMemEntry *_amigaMemList;
 	DemoJoy _demo3Joy;
@@ -139,7 +142,7 @@ struct Resource {
 	void dumpEntries();
 	void load();
 	void invalidateAll();
-	void invalidateRes();	
+	void invalidateRes();
 	void update(uint16_t num, PreloadSoundProc, void *);
 	void loadBmp(int num);
 	uint8_t *loadDat(int num);

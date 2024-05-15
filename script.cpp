@@ -796,6 +796,9 @@ void Script::snd_playSound(uint16_t resNum, uint8_t freq, uint8_t vol, uint8_t c
 	case Resource::DT_3DO:
 		_mix->playSoundAiff(channel, resNum, vol);
 		break;
+	case Resource::DT_MAC:
+		// TODO
+		break;
 	case Resource::DT_AMIGA:
 	case Resource::DT_ATARI:
 	case Resource::DT_ATARI_DEMO:
@@ -843,6 +846,9 @@ void Script::snd_playMusic(uint16_t resNum, uint16_t delay, uint8_t pos) {
 				_mix->playAifcMusic(p, offset);
 			}
 		}
+		break;
+	case Resource::DT_MAC:
+		// TODO
 		break;
 	default: // DT_AMIGA, DT_ATARI, DT_DOS
 		if (resNum != 0) {

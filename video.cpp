@@ -465,6 +465,17 @@ static void yflip(const uint8_t *src, int w, int h, uint8_t *dst) {
 	}
 }
 
+static void decode_pict(const uint8_t *src, uint8_t *dst) {
+	src += 512;
+	const int size = READ_BE_UINT16(src); src += 2;
+	const int xoffset = READ_BE_UINT16(src); src += 2;
+	const int yoffset = READ_BE_UINT16(src); src += 2;
+	assert(xoffset == 0 && yoffset == 0);
+	const int w = READ_BE_UINT16(src); src += 2;
+	const int h = READ_BE_UINT16(src); src += 2;
+	warning("decode_pict() size %d w %d h %d", size, w, h);
+}
+
 void Video::scaleBitmap(const uint8_t *src, int fmt) {
 	if (_scaler) {
 		const int w = BITMAP_W * _scalerFactor;
@@ -490,6 +501,8 @@ void Video::copyBitmapPtr(const uint8_t *src, uint32_t size) {
 	} else if (_res->getDataType() == Resource::DT_3DO) {
 		deinterlace555(src, BITMAP_W, BITMAP_H, _bitmap555);
 		scaleBitmap((const uint8_t *)_bitmap555, FMT_RGB555);
+	} else if (_res->getDataType() == Resource::DT_MAC) {
+		decode_pict(src, _tempBitmap);
 	} else { // .BMP
 		if (Graphics::_is1991) {
 			const int w = READ_LE_UINT32(src + 0x12);

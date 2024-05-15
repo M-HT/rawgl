@@ -18,6 +18,7 @@ The program requires the original data files.
 - 20th Anniversary Edition (game/)
 - Windows 3.1 (Bank, *mid)
 - 3DO (GameData/ or .ISO)
+- Macintosh (.rsrc, data/)
 
 ## Running
 
