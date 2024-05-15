@@ -13,6 +13,45 @@
 #include "util.h"
 
 
+#pragma pack(2)
+
+struct MacRect {
+	int16_t top;    /* upper boundary of rectangle */
+	int16_t left;   /* left boundary of rectangle */
+	int16_t bottom; /* lower boundary of rectangle */
+	int16_t right;  /* right boundary of rectangle */
+
+	bool operator == (MacRect const& rect) const {
+		return top == rect.top && left == rect.left && bottom == rect.bottom && right == rect.right;
+	}
+};
+
+struct MacPixMap {
+	int16_t  rowBytes;      /* flags, and row width */
+	MacRect  bounds;        /* boundary rectangle */
+	int16_t  pmVersion;     /* PixMap version number */
+	int16_t  packType;      /* packing format */
+	int32_t  packSize;      /* size of data in packed state */
+	uint32_t hRes;          /* horizontal resolution (dpi) */
+	uint32_t vRes;          /* vertical resolution (dpi) */
+	int16_t  pixelType;     /* format of pixel image */
+	int16_t  pixelSize;     /* physical bits per pixel */
+	int16_t  cmpCount;      /* logical components per pixel */
+	int16_t  cmpSize;       /* logical bits per component */
+	int32_t  planeBytes;    /* offset to next plane */
+	uint32_t pmTable;       /* handle to the ColorTable struct */
+	int32_t  pmReserved;    /* reserved for future expansion; must be 0 */
+};
+
+struct MacColorTable {
+	int32_t ctSeed;     /* unique identifier for table */
+	int16_t ctFlags;    /* high bit: 0 = PixMap; 1 = device */
+	int16_t ctSize;     /* number of entries in next field */
+};
+
+#pragma pack()
+
+
 Video::Video(Resource *res)
 	: _res(res), _graphics(0), _hasHeadSprites(false), _displayHead(true) {
 }
@@ -465,15 +504,232 @@ static void yflip(const uint8_t *src, int w, int h, uint8_t *dst) {
 	}
 }
 
-static void decode_pict(const uint8_t *src, uint8_t *dst) {
-	src += 512;
-	const int size = READ_BE_UINT16(src); src += 2;
-	const int xoffset = READ_BE_UINT16(src); src += 2;
-	const int yoffset = READ_BE_UINT16(src); src += 2;
-	assert(xoffset == 0 && yoffset == 0);
-	const int w = READ_BE_UINT16(src); src += 2;
-	const int h = READ_BE_UINT16(src); src += 2;
-	warning("decode_pict() size %d w %d h %d", size, w, h);
+static void read_rectangle(const uint8_t *src, MacRect &rect) {
+	rect.top = READ_BE_UINT16(src);
+	rect.left = READ_BE_UINT16(src + 2);
+	rect.bottom = READ_BE_UINT16(src + 4);
+	rect.right = READ_BE_UINT16(src + 6);
+}
+
+static void decode_pict_line8(int byteCount, const uint8_t *src, uint8_t *dst, int width, uint8_t *convpal) {
+	while (byteCount > 0 && width > 0) {
+		if (*src & 0x80) {
+			int runLength = 257 - *src++;
+			uint8_t value = convpal[*src++];
+			byteCount -= 2;
+			if (runLength > width) runLength = width;
+			width -= runLength;
+			for (; runLength > 0; --runLength) {
+				*dst++ = value;
+			}
+		} else {
+			int blockLength = *src++ + 1;
+			--byteCount;
+			if (blockLength > byteCount) blockLength = byteCount;
+			if (blockLength > width) blockLength = width;
+			byteCount -= blockLength;
+			width -= blockLength;
+			for (; blockLength > 0; --blockLength) {
+				*dst++ = convpal[*src++];
+			}
+		}
+	};
+}
+
+static void decode_pict_line4(int byteCount, const uint8_t *src, uint8_t *dst, int width, uint8_t *convpal) {
+	while (byteCount > 0 && width > 0) {
+		if (*src & 0x80) {
+			int runLength = 257 - *src++;
+			uint8_t value = convpal[*src++ >> 4];
+			byteCount -= 2;
+			if (runLength * 2 > width) runLength = width / 2;
+			width -= runLength * 2;
+			for (; runLength > 0; --runLength) {
+				*dst++ = value;
+				*dst++ = value;
+			}
+		} else {
+			int blockLength = *src++ + 1;
+			--byteCount;
+			if (blockLength > byteCount) blockLength = byteCount;
+			if (blockLength * 2 > width) blockLength = width / 2;
+			byteCount -= blockLength;
+			width -= blockLength * 2;
+			for (; blockLength > 0; --blockLength) {
+				*dst++ = convpal[*src >> 4];
+				*dst++ = convpal[*src++ & 0x0F];
+			}
+		}
+	};
+}
+
+static void decode_pict(const uint8_t *src, int w, int h, uint8_t *dst, Color *dstpal) {
+	bool version2;
+	MacRect frame;
+	MacRect clip;
+	MacRect decodeRect;
+	int16_t opcode, oplen, rowBytes, byteCount, mode;
+	MacPixMap pixmap;
+	MacColorTable colorTable;
+	MacRect srcRect, dstRect;
+	uint8_t convpal[256];
+
+	if (src[10] != 0x11 && src[11] != 0x11) {
+		src += 512;
+	}
+
+	read_rectangle(src + 2, frame);
+	src += 10;
+
+	if (src[0] == 0x11 && src[1] == 0x01) {
+		version2 = false;
+		src += 2;
+	} else if (READ_BE_UINT16(src) == 0x0011 && READ_BE_UINT16(src + 2) == 0x02FF) {
+		version2 = true;
+		src += 4;
+	} else {
+		warning("decode_pict() unsupported version");
+		return;
+	}
+
+	clip = frame;
+
+	decodeRect.top = 0;
+	decodeRect.left = 0;
+	decodeRect.bottom = h;
+	decodeRect.right = w;
+
+	while (1) {
+		if (version2) {
+			opcode = READ_BE_UINT16(src);
+			src += 2;
+		} else {
+			opcode = *src++;
+		}
+
+		switch (opcode) {
+		case 0x0000: // NOP - No operation
+			break;
+		case 0x0001: // ClipRgn - Clipping region
+			oplen = READ_BE_UINT16(src);
+			if (oplen == 10) {
+				read_rectangle(src + 2, clip);
+			} else if (oplen & 1 && version2) {
+				++oplen;
+			}
+			src += oplen;
+			break;
+		case 0x0090: // BitsRect - CopyBits with clipped rectangle
+		case 0x0098: // PackBitsRect - Packed CopyBits with clipped rectangle
+			rowBytes = READ_BE_UINT16(src);
+			if (rowBytes & 0x8000) {
+				pixmap.rowBytes = rowBytes & 0x7FFF;
+				read_rectangle(src + 2, pixmap.bounds);
+				pixmap.pmVersion = READ_BE_UINT16(src + 10);
+				pixmap.packType = READ_BE_UINT16(src + 12);
+				pixmap.packSize = READ_BE_UINT32(src + 14);
+				pixmap.hRes = READ_BE_UINT32(src + 18);
+				pixmap.vRes = READ_BE_UINT32(src + 22);
+				pixmap.pixelType = READ_BE_UINT16(src + 26);
+				pixmap.pixelSize = READ_BE_UINT16(src + 28);
+				pixmap.cmpCount = READ_BE_UINT16(src + 30);
+				pixmap.cmpSize = READ_BE_UINT16(src + 32);
+				pixmap.planeBytes = READ_BE_UINT32(src + 34);
+				src += 46;
+
+				colorTable.ctSeed = READ_BE_UINT32(src);
+				colorTable.ctFlags = READ_BE_UINT16(src + 4);
+				colorTable.ctSize = READ_BE_UINT16(src + 6);
+				src += 8;
+
+				// read bitmap pallete and match palette entries to target palette
+				for (int i = 0; i <= colorTable.ctSize; i++) {
+					int16_t value = READ_BE_UINT16(src);
+					uint8_t r = READ_BE_UINT16(src + 2) >> 8;
+					uint8_t g = READ_BE_UINT16(src + 4) >> 8;
+					uint8_t b = READ_BE_UINT16(src + 6) >> 8;
+					src += 8;
+					if (colorTable.ctFlags & 0x8000) {
+						value = i;
+					}
+					if (value > colorTable.ctSize || value > 255) {
+						continue;
+					}
+					int smallestDistance = 262144;
+					for (int j = 0; j < 16; j++) {
+						int rd = dstpal[j].r - r;
+						int gd = dstpal[j].g - g;
+						int bd = dstpal[j].b - b;
+						int distance = (rd * rd) + (gd * gd) + (bd * bd);
+						if (distance < smallestDistance) {
+							smallestDistance = distance;
+							convpal[value] = j;
+							if (distance == 0) break;
+						}
+					}
+				}
+
+				read_rectangle(src, srcRect);
+				read_rectangle(src + 8, dstRect);
+				mode = READ_BE_UINT16(src + 16);
+				src += 18;
+
+				if (decodeRect == frame && decodeRect == clip && decodeRect == pixmap.bounds && decodeRect == srcRect && decodeRect == dstRect &&
+				    pixmap.rowBytes == ((frame.right - frame.left) * pixmap.pixelSize / 8) && pixmap.rowBytes >= 8 && pixmap.pmVersion == 0 &&
+				    pixmap.packType == 0 && pixmap.packSize == 0 && pixmap.pixelType == 0 && (pixmap.pixelSize == 8 || pixmap.pixelSize == 4) &&
+				    pixmap.cmpCount == 1 && pixmap.cmpSize == pixmap.pixelSize && pixmap.planeBytes == 0 && mode == 0) {
+					int width = frame.right - frame.left;
+					oplen = 0;
+					for (int y = srcRect.top; y < srcRect.bottom; ++y) {
+						if (pixmap.rowBytes > 250) {
+							byteCount = READ_BE_UINT16(src);
+							src += 2;
+							oplen +=2;
+					} else {
+							byteCount = *src++;
+							++oplen;
+						}
+						if (pixmap.pixelSize == 8) {
+							decode_pict_line8(byteCount, src, dst, width, convpal);
+						} else {
+							decode_pict_line4(byteCount, src, dst, width, convpal);
+						}
+						src += byteCount;
+						oplen += byteCount;
+						dst += width;
+					}
+					if (oplen & 1 && version2) {
+						++src;
+					}
+				} else {
+					warning("decode_pict() unimplemented pixmap copy");
+					return;
+				}
+			} else {
+				warning("decode_pict() unimplemented bitmap copy");
+				return;
+			}
+			break;
+		case 0x00A0: // ShortComment
+			src += 2;
+			break;
+		case 0x00A1: // LongComment
+			oplen = READ_BE_UINT16(src);
+			src += 4 + oplen;
+			if (oplen & 1 && version2) {
+				++src;
+			}
+			break;
+		case 0x00FF: // OpEndPic - End of picture
+			return;
+		case 0x0C00: // HeaderOp - Header opcode for Version 2
+			src += 24; // skip header
+			break;
+		default:
+			warning("decode_pict() unimplemented opcode 0x%X", opcode);
+			return;
+		}
+	}
 }
 
 void Video::scaleBitmap(const uint8_t *src, int fmt) {
@@ -487,6 +743,8 @@ void Video::scaleBitmap(const uint8_t *src, int fmt) {
 		_graphics->drawBitmap(0, src, BITMAP_W, BITMAP_H, fmt);
 	}
 }
+
+static void readPaletteAmiga(const uint8_t *buf, int num, Color pal[16]);
 
 void Video::copyBitmapPtr(const uint8_t *src, uint32_t size) {
 	if (_res->getDataType() == Resource::DT_DOS || _res->getDataType() == Resource::DT_AMIGA) {
@@ -502,7 +760,10 @@ void Video::copyBitmapPtr(const uint8_t *src, uint32_t size) {
 		deinterlace555(src, BITMAP_W, BITMAP_H, _bitmap555);
 		scaleBitmap((const uint8_t *)_bitmap555, FMT_RGB555);
 	} else if (_res->getDataType() == Resource::DT_MAC) {
-		decode_pict(src, _tempBitmap);
+		Color pal[16];
+		readPaletteAmiga(_res->_segVideoPal, src[0] ? src[0] : _currentPal, pal); // read target palette for bitmap
+		decode_pict(src, BITMAP_W, BITMAP_H, _tempBitmap, pal);
+		scaleBitmap(_tempBitmap, FMT_CLUT);
 	} else { // .BMP
 		if (Graphics::_is1991) {
 			const int w = READ_LE_UINT32(src + 0x12);

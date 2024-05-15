@@ -501,6 +501,32 @@ void Resource::loadBmp(int num) {
 		break;
 	case DT_MAC:
 		p = _mac->loadFile(num, 0, &size);
+		if (p) {
+			// set target palette for bitmap
+			switch(num) {
+			case 67:
+				*p = 6;
+				break;
+			case 68:
+			case 69:
+			case 70:
+				*p = 8;
+				break;
+			case 72:
+			case 73:
+				*p = 25;
+				break;
+			case 144:
+				*p = 3;
+				break;
+			case 145:
+				*p = 1;
+				break;
+			default:
+				*p = 0;
+				break;
+			}
+		}
 		break;
 	default:
 		break;
