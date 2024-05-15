@@ -55,6 +55,21 @@ struct MixerChannel {
 		_volume = volume;
 	}
 
+	void initMac(const uint8_t *data, int freq, int volume, int mixingFreq) {
+		_pos.reset(freq, mixingFreq);
+
+		const int len = READ_BE_UINT32(data + 24);
+		const int loopStart = (int32_t)READ_BE_UINT32(data + 32);
+		const int loopEnd = (int32_t)READ_BE_UINT32(data + 36);
+		_data = data + ((loopStart < 0) ? 44 : 42);
+
+		_loopLen = (loopStart >= 0 && loopEnd <= len && loopStart + 1 != loopEnd) ? loopEnd - loopStart : 0;
+		_loopPos = loopStart;
+		_len = len;
+
+		_volume = volume;
+	}
+
 	void initWav(const uint8_t *data, int freq, int volume, int mixingFreq, int len, bool bits16, bool stereo, bool loop) {
 		_data = data;
 		_pos.reset(freq, mixingFreq);
@@ -81,6 +96,25 @@ struct MixerChannel {
 				}
 			}
 			sample = mixS16(sample, toS16(_data[pos] ^ 0x80) * _volume / 64);
+		}
+	}
+
+	void mixMac(int16_t &sample) {
+		if (_data) {
+			uint32_t pos = _pos.getInt();
+			_pos.offset += _pos.inc;
+			if (_loopLen != 0) {
+				if (pos >= _loopPos + _loopLen) {
+					pos = _loopPos;
+					_pos.offset = (_loopPos << Frac::BITS) + _pos.inc;
+				}
+			} else {
+				if (pos >= _len) {
+					_data = 0;
+					return;
+				}
+			}
+			sample = mixS16(sample, toS16(_data[pos]) * _volume / 64);
 		}
 	}
 
@@ -257,6 +291,9 @@ struct Mixer_impl {
 		case kMixerTypeRaw:
 			Mix_HookMusic(mixAudio, this);
 			break;
+		case kMixerTypeMac:
+			Mix_SetPostMix(mixAudioMac, this);
+			break;
 		case kMixerTypeWavMidi:
 #ifdef USE_LIBADLMIDI
 			initAdlMidi();
@@ -336,6 +373,11 @@ struct Mixer_impl {
 	void playSoundRaw(uint8_t channel, const uint8_t *data, int freq, uint8_t volume) {
 		SDL_LockAudio();
 		_channels[channel].initRaw(data, freq, volume, kMixFreq);
+		SDL_UnlockAudio();
+	}
+	void playSoundMac(uint8_t channel, const uint8_t *data, int freq, uint8_t volume) {
+		SDL_LockAudio();
+		_channels[channel].initMac(data, freq, volume, kMixFreq);
 		SDL_UnlockAudio();
 	}
 	void playSoundWav(uint8_t channel, const uint8_t *data, int freq, uint8_t volume, bool loop) {
@@ -474,6 +516,22 @@ struct Mixer_impl {
 		}
 	}
 
+	void mixChannelsMac(int16_t *samples, int count) {
+		for (int i = 0; i < count; i += 2) {
+			int16_t sample = 0;
+			for (int j = 0; j < kMixChannels; ++j) {
+				_channels[j].mixMac(sample);
+			}
+			samples[i] = mixS16(samples[i], sample);
+			samples[i + 1] = mixS16(samples[i + 1], sample);
+		}
+	}
+
+	static void mixAudioMac(void *data, uint8_t *s16buf, int len) {
+		Mixer_impl *mixer = (Mixer_impl *)data;
+		mixer->mixChannelsMac((int16_t *)s16buf, len / sizeof(int16_t));
+	}
+
 	void mixChannelsWav(int16_t *samples, int count) {
 		for (int i = 0; i < kMixChannels; ++i) {
 			if (_channels[i]._data) {
@@ -553,6 +611,13 @@ void Mixer::playSoundRaw(uint8_t channel, const uint8_t *data, uint16_t freq, ui
 	debug(DBG_SND, "Mixer::playChannel(%d, %d, %d)", channel, freq, volume);
 	if (_impl) {
 		return _impl->playSoundRaw(channel, data, freq, volume);
+	}
+}
+
+void Mixer::playSoundMac(uint8_t channel, const uint8_t *data, uint16_t freq, uint8_t volume) {
+	debug(DBG_SND, "Mixer::playSoundMac(%d, %d, %d)", channel, freq, volume);
+	if (_impl) {
+		return _impl->playSoundMac(channel, data, freq, volume);
 	}
 }
 

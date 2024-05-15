@@ -127,6 +127,7 @@ void Engine::setup(Language lang, int graphicsType, const char *scalerName, int 
 		mixerType = kMixerTypeAiff;
 		break;
 	case Resource::DT_MAC:
+		mixerType = kMixerTypeMac;
 		_vid._stringsTable = Video::_stringsTableMac;
 		break;
 	}

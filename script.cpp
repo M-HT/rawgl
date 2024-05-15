@@ -796,8 +796,12 @@ void Script::snd_playSound(uint16_t resNum, uint8_t freq, uint8_t vol, uint8_t c
 	case Resource::DT_3DO:
 		_mix->playSoundAiff(channel, resNum, vol);
 		break;
-	case Resource::DT_MAC:
-		// TODO
+	case Resource::DT_MAC: {
+			uint8_t *buf = _res->loadWav(resNum);
+			if (buf) {
+				_mix->playSoundMac(channel, buf, getSoundFreq(freq), vol);
+			}
+		}
 		break;
 	case Resource::DT_AMIGA:
 	case Resource::DT_ATARI:
