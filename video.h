@@ -29,6 +29,7 @@ struct Video {
 	static const StrEntry _stringsTableFr[];
 	static const StrEntry _stringsTableEng[];
 	static const StrEntry _stringsTableDemo[];
+	static const StrEntry _stringsTableMac[];
 	static const uint16_t _stringsId15th[];
 	static const char *_stringsTable15th[];
 	static const char *_str0x194AtariDemo;

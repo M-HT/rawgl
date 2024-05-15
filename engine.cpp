@@ -103,7 +103,6 @@ void Engine::setup(Language lang, int graphicsType, const char *scalerName, int 
 	case Resource::DT_AMIGA:
 	case Resource::DT_ATARI:
 	case Resource::DT_ATARI_DEMO:
-	case Resource::DT_MAC:
 		mixerType = kMixerTypeRaw;
 		switch (lang) {
 		case LANG_FR:
@@ -126,6 +125,9 @@ void Engine::setup(Language lang, int graphicsType, const char *scalerName, int 
 		break;
 	case Resource::DT_3DO:
 		mixerType = kMixerTypeAiff;
+		break;
+	case Resource::DT_MAC:
+		_vid._stringsTable = Video::_stringsTableMac;
 		break;
 	}
 	_mix.init(mixerType);

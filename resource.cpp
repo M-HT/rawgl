@@ -154,6 +154,7 @@ const char *Resource::getGameTitle(Language lang) const {
 	case DT_20TH_EDITION:
 		return kGameTitle20thEdition;
 	case DT_3DO:
+	case DT_MAC:
 		return kGameTitleUS;
 	case DT_DOS:
 		if (lang == LANG_US) {
