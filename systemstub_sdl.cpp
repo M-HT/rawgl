@@ -20,7 +20,7 @@ struct SystemStub_SDL : SystemStub {
 	SDL_Window *_window;
 	SDL_Renderer *_renderer;
 	SDL_GLContext _glcontext;
-	int _texW, _texH;
+	int _texW, _texH, _texRedLow;
 	SDL_Texture *_texture;
 	SDL_Joystick *_joystick;
 	SDL_GameController *_controller;
@@ -34,6 +34,7 @@ struct SystemStub_SDL : SystemStub {
 
 	virtual void prepareScreen(int &w, int &h, float ar[4]);
 	virtual void updateScreen();
+	virtual void setScreenPixelsCLUT(const uint8_t *data, const uint8_t *pal, int w, int h);
 	virtual void setScreenPixels555(const uint16_t *data, int w, int h);
 
 	virtual void processEvents();
@@ -146,6 +147,63 @@ void SystemStub_SDL::updateScreen() {
 		SDL_RenderPresent(_renderer);
 	} else {
 		SDL_GL_SwapWindow(_window);
+	}
+}
+
+void SystemStub_SDL::setScreenPixelsCLUT(const uint8_t *data, const uint8_t *pal, int w, int h) {
+	if (_renderer) {
+		if (!_texture) {
+			Uint32 format = SDL_PIXELFORMAT_ABGR8888;
+			SDL_RendererInfo info;
+			if (SDL_GetRendererInfo(_renderer, &info) <= 0) {
+				for (int i = 0; i < (int)info.num_texture_formats; ++i) {
+					if (info.texture_formats[i] == SDL_PIXELFORMAT_ARGB8888 || info.texture_formats[i] == SDL_PIXELFORMAT_ABGR8888 || info.texture_formats[i] == SDL_PIXELFORMAT_RGB888 || info.texture_formats[i] == SDL_PIXELFORMAT_BGR888) {
+						format = info.texture_formats[i];
+						break;
+					}
+				}
+			}
+			_texture = SDL_CreateTexture(_renderer, format, SDL_TEXTUREACCESS_STREAMING, w, h);
+			if (!_texture) {
+				return;
+			}
+			_texW = w;
+			_texH = h;
+			_texRedLow = (format == SDL_PIXELFORMAT_ABGR8888 || format == SDL_PIXELFORMAT_BGR888);
+		}
+		assert(w <= _texW && h <= _texH);
+		SDL_Rect r;
+		r.w = w;
+		r.h = h;
+		if (w != _texW && h != _texH) {
+			r.x = (_texW - w) / 2;
+			r.y = (_texH - h) / 2;
+		} else {
+			r.x = 0;
+			r.y = 0;
+		}
+		uint32_t clut[16];
+		if (_texRedLow) {
+			for (int i = 0; i < 16; ++i) {
+				clut[i] = pal[3 * i] | (pal[3 * i + 1] << 8) | (pal[3 * i + 2] << 16);
+			}
+		} else {
+			for (int i = 0; i < 16; ++i) {
+				clut[i] = pal[3 * i + 2] | (pal[3 * i + 1] << 8) | (pal[3 * i] << 16);
+			}
+		}
+		uint32_t *dst;
+		int pitch;
+		if (!SDL_LockTexture(_texture, &r, (void **)&dst, &pitch)) {
+			for (int i = 0; i < h; ++i) {
+				for (int j = 0; j < w; ++j) {
+					dst[j] = clut[*data++];
+				}
+				dst = (uint32_t *)(pitch + (uintptr_t)dst);
+			}
+			SDL_UnlockTexture(_texture);
+		}
+		SDL_RenderCopy(_renderer, _texture, 0, 0);
 	}
 }
 

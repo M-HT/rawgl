@@ -20,7 +20,6 @@ struct GraphicsSoft: Graphics {
 	int _w, _h;
 	int _byteDepth;
 	Color _pal[16];
-	uint16_t *_colorBuffer;
 	int _screenshotNum;
 
 	GraphicsSoft();
@@ -62,7 +61,6 @@ struct GraphicsSoft: Graphics {
 GraphicsSoft::GraphicsSoft() {
 	_fixUpPalette = FIXUP_PALETTE_NONE;
 	memset(_pagePtrs, 0, sizeof(_pagePtrs));
-	_colorBuffer = 0;
 	memset(_pal, 0, sizeof(_pal));
 	_screenshotNum = 1;
 }
@@ -72,7 +70,6 @@ GraphicsSoft::~GraphicsSoft() {
 		free(_pagePtrs[i]);
 		_pagePtrs[i] = 0;
 	}
-	free(_colorBuffer);
 }
 
 void GraphicsSoft::setSize(int w, int h) {
@@ -82,10 +79,6 @@ void GraphicsSoft::setSize(int w, int h) {
 	_h = h;
 	_byteDepth = _use555 ? 2 : 1;
 	assert(_byteDepth == 1 || _byteDepth == 2);
-	_colorBuffer = (uint16_t *)realloc(_colorBuffer, _w * _h * sizeof(uint16_t));
-	if (!_colorBuffer) {
-		error("Unable to allocate color buffer w %d h %d", _w, _h);
-	}
 	for (int i = 0; i < 4; ++i) {
 		_pagePtrs[i] = (uint8_t *)realloc(_pagePtrs[i], getPageSize());
 		if (!_pagePtrs[i]) {
@@ -429,35 +422,13 @@ static void dumpBuffer555(const uint16_t *src, int w, int h, int num) {
 	debug(DBG_INFO, "Written '%s'", name);
 }
 
-static void dumpPalette555(uint16_t *dst, int w, const Color *pal) {
-	static const int SZ = 16;
-	for (int color = 0; color < 16; ++color) {
-		uint16_t *p = dst + (color & 7) * SZ;
-		for (int y = 0; y < SZ; ++y) {
-			for (int x = 0; x < SZ; ++x) {
-				p[x] = pal[color].rgb555();
-			}
-			p += w;
-		}
-		if (color == 7) {
-			dst += SZ * w;
-		}
-	}
-}
-
 void GraphicsSoft::drawBuffer(int num, SystemStub *stub) {
 	int w, h;
 	float ar[4];
 	stub->prepareScreen(w, h, ar);
 	if (_byteDepth == 1) {
 		const uint8_t *src = getPagePtr(num);
-		for (int i = 0; i < _w * _h; ++i) {
-			_colorBuffer[i] = _pal[src[i]].rgb555();
-		}
-		if (0) {
-			dumpPalette555(_colorBuffer, _w, _pal);
-		}
-		stub->setScreenPixels555(_colorBuffer, _w, _h);
+		stub->setScreenPixelsCLUT(src, (const uint8_t *)_pal, _w, _h);
 		if (_screenshot) {
 			dumpBufferCLUT(src, (const uint8_t *)_pal, _w, _h, _screenshotNum);
 			++_screenshotNum;
