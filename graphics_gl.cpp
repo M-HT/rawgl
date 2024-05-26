@@ -140,7 +140,7 @@ void Texture::uploadDataCLUT(const uint8_t *data, int srcPitch, int w, int h, co
 		}
 		_u = w / (float)_w;
 		_v = h / (float)_h;
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, ((w & 3) || ((intptr_t)_rgbData & 3)) ? 1 : 4);
 		glGenTextures(1, &_id);
 		glBindTexture(GL_TEXTURE_2D, _id);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (fmt == GL_RED) ? GL_NEAREST : GL_LINEAR);
@@ -150,6 +150,7 @@ void Texture::uploadDataCLUT(const uint8_t *data, int srcPitch, int w, int h, co
 		convertTextureCLUT(data, srcPitch, w, h, _rgbData, _w * depth, pal, alpha);
 		glTexImage2D(GL_TEXTURE_2D, 0, fmt, _w, _h, 0, fmt, type, _rgbData);
 	} else {
+		glPixelStorei(GL_UNPACK_ALIGNMENT, ((w & 3) || ((intptr_t)_rgbData & 3)) ? 1 : 4);
 		glBindTexture(GL_TEXTURE_2D, _id);
 		convertTextureCLUT(data, srcPitch, w, h, _rgbData, _w * depth, pal, alpha);
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, _w, _h, fmt, type, _rgbData);
@@ -161,7 +162,7 @@ void Texture::uploadDataRGB(const void *data, int srcPitch, int w, int h, int fm
 	_h = h;
 	_u = 1.f;
 	_v = 1.f;
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, ((w & 3) || ((intptr_t)data & 3)) ? 1 : 4);
 	glGenTextures(1, &_id);
 	glBindTexture(GL_TEXTURE_2D, _id);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -228,10 +229,7 @@ void Texture::readFont(const uint8_t *src) {
 }
 
 static uint16_t rgb555_to_565(const uint16_t color) {
-	const int r = (color >> 10) & 31;
-	const int g = (color >>  5) & 31;
-	const int b =  color        & 31;
-	return (r << 11) | (g << 6) | b;
+	return (color & 0x1F) | ((color & 0x7FE0) << 1) | ((color & 0x0200) >> 4);
 }
 
 void Texture::readRGB555(const uint16_t *src, int w, int h) {
