@@ -243,6 +243,7 @@ struct Mixer_impl {
 
 #ifdef USE_LIBADLMIDI
 	struct ADL_MIDIPlayer *_adlHandle;
+	bool _adlPlaying;
 #endif
 
 	void init(MixerType mixerType) {
@@ -323,6 +324,7 @@ struct Mixer_impl {
 
 #ifdef USE_LIBADLMIDI
 	void initAdlMidi() {
+		_adlPlaying = false;
 		_adlHandle = adl_init(kMixFreq);
 		if (!_adlHandle) return;
 
@@ -351,7 +353,7 @@ struct Mixer_impl {
 
 	static void mixAudioAdlMidi(void *data, uint8_t *s16buf, int len) {
 		Mixer_impl *mixer = (Mixer_impl *)data;
-		if (mixer->_adlHandle) {
+		if (mixer->_adlPlaying) {
 			int numSamples = adl_play(mixer->_adlHandle, len / sizeof(int16_t), (short *) s16buf);
 			len -= numSamples * sizeof(int16_t);
 			s16buf += numSamples * sizeof(int16_t);
@@ -428,6 +430,8 @@ struct Mixer_impl {
 				SDL_LockAudio();
 				if (adl_openFile(_adlHandle, path)) {
 					warning("Failed to load music '%s', %s", path, adl_errorInfo(_adlHandle));
+				} else {
+					_adlPlaying = true;
 				}
 				SDL_UnlockAudio();
 			}
@@ -452,6 +456,7 @@ struct Mixer_impl {
 			if (_adlHandle) {
 				SDL_LockAudio();
 				adl_reset(_adlHandle);
+				_adlPlaying = false;
 				SDL_UnlockAudio();
 			}
 			return;
