@@ -370,6 +370,10 @@ void Resource::invalidateRes() {
 		MemEntry *me = &_memList[i];
 		if (me->type <= 2 || me->type > 6) {
 			me->status = STATUS_NULL;
+			if (me->allocated) {
+				free(me->bufPtr);
+				me->allocated = 0;
+			}
 		}
 	}
 	_scriptCurPtr = _scriptBakPtr;
@@ -379,6 +383,10 @@ void Resource::invalidateRes() {
 void Resource::invalidateAll() {
 	for (int i = 0; i < _numMemList; ++i) {
 		_memList[i].status = STATUS_NULL;
+		if (_memList[i].allocated) {
+			free(_memList[i].bufPtr);
+			_memList[i].allocated = 0;
+		}
 	}
 	_scriptCurPtr = _memPtrStart;
 	_vid->_currentPal = 0xFF;
@@ -616,10 +624,11 @@ uint8_t *Resource::loadWav(int num) {
 	default:
 		break;
 	}
-	if (p && size != 0) {
+	if (p) {
 		_scriptCurPtr += size;
 		_memList[num].bufPtr = p;
 		_memList[num].status = STATUS_LOADED;
+		_memList[num].allocated = size == 0;
 	}
 	return p;
 }
@@ -765,6 +774,12 @@ void Resource::allocMemBlock() {
 }
 
 void Resource::freeMemBlock() {
+	for (int i = 0; i < _numMemList; ++i) {
+		if (_memList[i].allocated) {
+			free(_memList[i].bufPtr);
+			_memList[i].allocated = 0;
+		}
+	}
 	free(_memPtrStart);
 	_memPtrStart = 0;
 }

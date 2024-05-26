@@ -13,6 +13,7 @@ struct MemEntry {
 	uint8_t status;        // 0x0
 	uint8_t type;          // 0x1, Resource::ResType
 	uint8_t *bufPtr;       // 0x2
+	uint8_t allocated;
 	uint8_t rankNum;       // 0x6
 	uint8_t bankNum;       // 0x7
 	uint32_t bankPos;      // 0x8
