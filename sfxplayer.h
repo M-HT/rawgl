@@ -16,6 +16,7 @@ struct SfxPlayer {
 	SfxPlayer_impl *_impl;
 
 	SfxPlayer();
+	~SfxPlayer();
 	void init(Resource *res);
 	void setSyncVar(int16_t *syncVar);
 

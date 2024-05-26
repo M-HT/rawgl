@@ -309,6 +309,7 @@ struct GraphicsGL : Graphics {
 	virtual ~GraphicsGL() {}
 
 	virtual void init(int targetW, int targetH);
+	virtual void fini();
 	virtual void setFont(const uint8_t *src, int w, int h);
 	virtual void setPalette(const Color *colors, int count);
 	virtual void setSpriteAtlas(const uint8_t *src, int w, int h, int xSize, int ySize);
@@ -361,6 +362,12 @@ void GraphicsGL::init(int targetW, int targetH) {
 	} else {
 		error("GL_ARB_framebuffer_object is not supported");
 	}
+}
+
+void GraphicsGL::fini() {
+	_spritesTex.clear();
+	_fontTex.clear();
+	_backgroundTex.clear();
 }
 
 void GraphicsGL::initFbo() {

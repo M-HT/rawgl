@@ -162,6 +162,7 @@ int main(int argc, char *argv[]) {
 		}
 		switch (c) {
 		case 'd':
+			if (dataPath) free(dataPath);
 			dataPath = strdup(optarg);
 			break;
 		case 'l':
@@ -222,6 +223,7 @@ int main(int argc, char *argv[]) {
 			// fall-through
 		default:
 			printf(USAGE, argv[0]);
+			if (dataPath) free(dataPath);
 			return 0;
 		}
 	}
@@ -269,6 +271,8 @@ int main(int argc, char *argv[]) {
 	}
 	e->finish();
 	delete e;
+	delete graphics;
+	if (dataPath) free(dataPath);
 	stub->fini();
 	delete stub;
 	return 0;

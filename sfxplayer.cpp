@@ -13,6 +13,8 @@
 #include <math.h>
 
 struct SfxPlayer_impl {
+	virtual ~SfxPlayer_impl() {};
+
 	virtual void setSyncVar(int16_t *syncVar) = 0;
 	virtual void setEventsDelay(uint16_t delay) = 0;
 	virtual void loadSfxModule(uint16_t resNum, uint16_t delay, uint8_t pos) = 0;
@@ -26,6 +28,13 @@ struct SfxPlayer_impl {
 
 SfxPlayer::SfxPlayer()
 	: _impl(0) {
+}
+
+SfxPlayer::~SfxPlayer() {
+	if (_impl) {
+		_impl->stop();
+		delete _impl;
+	}
 }
 
 void SfxPlayer::init(Resource *res) {

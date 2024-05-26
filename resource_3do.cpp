@@ -257,6 +257,7 @@ uint8_t *Resource3do::loadFile(int num, uint8_t *dst, uint32_t *size) {
 		if (in != dst) free(dst);
 		if (decodedSize != SZ) {
 			warning("Unexpected LZSS decoded size %d", decodedSize);
+			free(tmp);
 			return 0;
 		}
 		*size = decodedSize;

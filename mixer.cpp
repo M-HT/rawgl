@@ -574,7 +574,8 @@ struct Mixer_impl {
 		} else {
 			const uint32_t size = READ_BE_UINT32(data + 4) + 8;
 			SDL_RWops *rw = SDL_RWFromConstMem(data, size);
-			Mix_Chunk *chunk = Mix_LoadWAV_RW(rw, 1);
+			Mix_Chunk *chunk = Mix_LoadWAV_RW(rw, 0);
+			rw->close(rw);
 			_preloads[num] = chunk;
 		}
 	}

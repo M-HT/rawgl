@@ -44,6 +44,7 @@ ResourceMac::~ResourceMac() {
 		free(_entries);
 	}
 	free(_types);
+	free(_dataPath);
 }
 
 bool ResourceMac::load() {
