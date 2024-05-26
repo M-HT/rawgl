@@ -10,7 +10,9 @@ static void TO_LE16(uint8_t *dst, uint16_t value) {
 	}
 }
 
+#define kTgaImageTypeUncompressedColorMapped 1
 #define kTgaImageTypeUncompressedTrueColor 2
+#define kTgaImageTypeRunLengthEncodedColorMapped 9
 #define kTgaImageTypeRunLengthEncodedTrueColor 10
 #define kTgaDirectionTop (1 << 5)
 
@@ -58,11 +60,57 @@ void saveTGA(const char *filename, const uint16_t *rgb555, int w, int h) {
 				count = 0;
 				prevColor = color;
 			}
-			if (count != 0) {
+			f.writeByte(count | 0x80);
+			f.writeByte(prevColor & 255);
+			f.writeByte(prevColor >> 8);
+		}
+	}
+}
+
+void saveTGA(const char *filename, const uint8_t *bits, const uint8_t *pal, int w, int h) {
+
+	static const uint8_t kImageType = kTgaImageTypeRunLengthEncodedColorMapped;
+	uint8_t buffer[TGA_HEADER_SIZE];
+	buffer[0]            = 0; // ID Length
+	buffer[1]            = 1; // ColorMap Type
+	buffer[2]            = kImageType;
+	TO_LE16(buffer +  3,   0); // ColorMap Start
+	TO_LE16(buffer +  5,  16); // ColorMap Length
+	buffer[7]            = 24; // ColorMap Bits
+	TO_LE16(buffer +  8,   0); // X-origin
+	TO_LE16(buffer + 10,   0); // Y-origin
+	TO_LE16(buffer + 12,   w); // Image Width
+	TO_LE16(buffer + 14,   h); // Image Height
+	buffer[16]           = 8;  // Pixel Depth
+	buffer[17]           = kTgaDirectionTop;  // Descriptor
+
+	File f;
+	if (f.openForWriting(filename)) {
+		f.write(buffer, sizeof(buffer));
+		for (int i = 0; i < 16; ++i) {
+			f.writeByte(pal[3 * i + 2]);
+			f.writeByte(pal[3 * i + 1]);
+			f.writeByte(pal[3 * i]);
+		}
+		if (kImageType == kTgaImageTypeUncompressedColorMapped) {
+			f.write(bits, w * h);
+		} else {
+			assert(kImageType == kTgaImageTypeRunLengthEncodedColorMapped);
+			uint8_t prevColor = *bits++;
+			int count = 0;
+			for (int i = 1; i < w * h; ++i) {
+				const uint8_t color = *bits++;
+				if (prevColor == color && count < 127) {
+					++count;
+					continue;
+				}
 				f.writeByte(count | 0x80);
-				f.writeByte(prevColor & 255);
-				f.writeByte(prevColor >> 8);
+				f.writeByte(prevColor);
+				count = 0;
+				prevColor = color;
 			}
+			f.writeByte(count | 0x80);
+			f.writeByte(prevColor);
 		}
 	}
 }

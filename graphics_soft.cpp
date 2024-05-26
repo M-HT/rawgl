@@ -104,7 +104,7 @@ static uint32_t calcStep(const Point &p1, const Point &p2, uint16_t &dy) {
 
 void GraphicsSoft::drawPolygon(uint8_t color, const QuadStrip &quadStrip) {
 	QuadStrip qs = quadStrip;
-	if (_w != GFX_W || _h != GFX_H) {	
+	if (_w != GFX_W || _h != GFX_H) {
 		for (int i = 0; i < qs.numVertices; ++i) {
 			qs.vertices[i].scale(_u, _v);
 		}
@@ -145,7 +145,7 @@ void GraphicsSoft::drawPolygon(uint8_t color, const QuadStrip &quadStrip) {
 		uint16_t h;
 		uint32_t step1 = calcStep(qs.vertices[j + 1], qs.vertices[j], h);
 		uint32_t step2 = calcStep(qs.vertices[i - 1], qs.vertices[i], h);
-		
+
 		++i;
 		--j;
 
@@ -415,6 +415,13 @@ void GraphicsSoft::copyBuffer(int dst, int src, int vscroll) {
 	}
 }
 
+static void dumpBufferCLUT(const uint8_t *src, const uint8_t *pal, int w, int h, int num) {
+	char name[32];
+	snprintf(name, sizeof(name), "screenshot-%d.tga", num);
+	saveTGA(name, src, pal, w, h);
+	debug(DBG_INFO, "Written '%s'", name);
+}
+
 static void dumpBuffer555(const uint16_t *src, int w, int h, int num) {
 	char name[32];
 	snprintf(name, sizeof(name), "screenshot-%d.tga", num);
@@ -452,7 +459,7 @@ void GraphicsSoft::drawBuffer(int num, SystemStub *stub) {
 		}
 		stub->setScreenPixels555(_colorBuffer, _w, _h);
 		if (_screenshot) {
-			dumpBuffer555(_colorBuffer, _w, _h, _screenshotNum);
+			dumpBufferCLUT(src, (const uint8_t *)_pal, _w, _h, _screenshotNum);
 			++_screenshotNum;
 			_screenshot = false;
 		}

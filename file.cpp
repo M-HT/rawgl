@@ -20,7 +20,7 @@ struct File_impl {
 	virtual uint32_t size() = 0;
 	virtual void seek(int off, int whence) = 0;
 	virtual int read(void *ptr, uint32_t len) = 0;
-	virtual int write(void *ptr, uint32_t len) = 0;
+	virtual int write(const void *ptr, uint32_t len) = 0;
 };
 
 struct stdFile : File_impl {
@@ -62,7 +62,7 @@ struct stdFile : File_impl {
 		}
 		return 0;
 	}
-	int write(void *ptr, uint32_t len) {
+	int write(const void *ptr, uint32_t len) {
 		if (_fp) {
 			uint32_t r = fwrite(ptr, 1, len, _fp);
 			if (r != len) {
@@ -143,7 +143,7 @@ int File::read(void *ptr, uint32_t len) {
 }
 
 uint8_t File::readByte() {
-	uint8_t b;
+	uint8_t b = 0;
 	read(&b, 1);
 	return b;
 }
@@ -172,7 +172,7 @@ uint32_t File::readUint32BE() {
 	return (hi << 16) | lo;
 }
 
-int File::write(void *ptr, uint32_t len) {
+int File::write(const void *ptr, uint32_t len) {
 	return _impl->write(ptr, len);
 }
 
