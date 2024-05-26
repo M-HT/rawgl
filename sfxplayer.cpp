@@ -431,7 +431,7 @@ struct MidiPlayer: SfxPlayer_impl {
 MidiPlayer::MidiPlayer(Resource *res)
 	: _res(res) {
 	_playing = false;
-	_midiFile.numberOfTracks = 0;
+	memset(&_midiFile, 0, sizeof(MidiFile));
 }
 
 void MidiPlayer::setSyncVar(int16_t *syncVar) {
