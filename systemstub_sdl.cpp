@@ -34,6 +34,7 @@ struct SystemStub_SDL : SystemStub {
 
 	virtual void prepareScreen(int &w, int &h, float ar[4]);
 	virtual void updateScreen();
+	virtual bool createTexture(int w, int h);
 	virtual void setScreenPixelsCLUT(const uint8_t *data, const uint8_t *pal, int w, int h);
 	virtual void setScreenPixels555(const uint16_t *data, int w, int h);
 
@@ -150,26 +151,34 @@ void SystemStub_SDL::updateScreen() {
 	}
 }
 
+bool SystemStub_SDL::createTexture(int w, int h) {
+	Uint32 format = SDL_PIXELFORMAT_ABGR8888;
+	SDL_RendererInfo info;
+	if (SDL_GetRendererInfo(_renderer, &info) <= 0) {
+		for (int i = 0; i < (int)info.num_texture_formats; ++i) {
+			if (info.texture_formats[i] == SDL_PIXELFORMAT_ARGB8888 ||
+			    info.texture_formats[i] == SDL_PIXELFORMAT_ABGR8888 ||
+			    info.texture_formats[i] == SDL_PIXELFORMAT_RGB888 ||
+			    info.texture_formats[i] == SDL_PIXELFORMAT_BGR888) {
+				format = info.texture_formats[i];
+				break;
+			}
+		}
+	}
+	_texture = SDL_CreateTexture(_renderer, format, SDL_TEXTUREACCESS_STREAMING, w, h);
+	if (!_texture) {
+		return false;
+	}
+	_texW = w;
+	_texH = h;
+	_texRedLow = (format == SDL_PIXELFORMAT_ABGR8888 || format == SDL_PIXELFORMAT_BGR888);
+	return true;
+}
+
 void SystemStub_SDL::setScreenPixelsCLUT(const uint8_t *data, const uint8_t *pal, int w, int h) {
 	if (_renderer) {
 		if (!_texture) {
-			Uint32 format = SDL_PIXELFORMAT_ABGR8888;
-			SDL_RendererInfo info;
-			if (SDL_GetRendererInfo(_renderer, &info) <= 0) {
-				for (int i = 0; i < (int)info.num_texture_formats; ++i) {
-					if (info.texture_formats[i] == SDL_PIXELFORMAT_ARGB8888 || info.texture_formats[i] == SDL_PIXELFORMAT_ABGR8888 || info.texture_formats[i] == SDL_PIXELFORMAT_RGB888 || info.texture_formats[i] == SDL_PIXELFORMAT_BGR888) {
-						format = info.texture_formats[i];
-						break;
-					}
-				}
-			}
-			_texture = SDL_CreateTexture(_renderer, format, SDL_TEXTUREACCESS_STREAMING, w, h);
-			if (!_texture) {
-				return;
-			}
-			_texW = w;
-			_texH = h;
-			_texRedLow = (format == SDL_PIXELFORMAT_ABGR8888 || format == SDL_PIXELFORMAT_BGR888);
+			if (!createTexture(w, h)) return;
 		}
 		assert(w <= _texW && h <= _texH);
 		SDL_Rect r;
@@ -210,12 +219,7 @@ void SystemStub_SDL::setScreenPixelsCLUT(const uint8_t *data, const uint8_t *pal
 void SystemStub_SDL::setScreenPixels555(const uint16_t *data, int w, int h) {
 	if (_renderer) {
 		if (!_texture) {
-			_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGB555, SDL_TEXTUREACCESS_STREAMING, w, h);
-			if (!_texture) {
-				return;
-			}
-			_texW = w;
-			_texH = h;
+			if (!createTexture(w, h)) return;
 		}
 		assert(w <= _texW && h <= _texH);
 		SDL_Rect r;
@@ -228,7 +232,32 @@ void SystemStub_SDL::setScreenPixels555(const uint16_t *data, int w, int h) {
 			r.x = 0;
 			r.y = 0;
 		}
-		SDL_UpdateTexture(_texture, &r, data, w * sizeof(uint16_t));
+		uint32_t *dst;
+		int pitch;
+		if (!SDL_LockTexture(_texture, &r, (void **)&dst, &pitch)) {
+			if (_texRedLow) {
+				for (int i = 0; i < h; ++i) {
+					for (int j = 0; j < w; ++j) {
+						const uint16_t color = *data++;
+						dst[j] = ((color & 0x001F) << 19) | ((color & 0x001C) << 14) |
+						         ((color & 0x03E0) <<  6) | ((color & 0x0380) <<  1) |
+						         ((color & 0x7C00) >>  7) | ((color & 0x7000) >> 12);
+					}
+					dst = (uint32_t *)(pitch + (uintptr_t)dst);
+				}
+			} else {
+				for (int i = 0; i < h; ++i) {
+					for (int j = 0; j < w; ++j) {
+						const uint16_t color = *data++;
+						dst[j] = ((color & 0x001F) << 3) | ((color & 0x001C) >> 2) |
+						         ((color & 0x03E0) << 6) | ((color & 0x0380) << 1) |
+						         ((color & 0x7C00) << 9) | ((color & 0x7000) << 4);
+					}
+					dst = (uint32_t *)(pitch + (uintptr_t)dst);
+				}
+			}
+			SDL_UnlockTexture(_texture);
+		}
 		SDL_RenderCopy(_renderer, _texture, 0, 0);
 	}
 }
