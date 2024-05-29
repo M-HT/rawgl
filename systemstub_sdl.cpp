@@ -72,7 +72,11 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 		_glcontext = SDL_GL_CreateContext(_window);
 	} else {
 		_glcontext = 0;
+#ifdef PYRA
+		_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_SOFTWARE);
+#else
 		_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);
+#endif
 		SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
 		SDL_RenderClear(_renderer);
 	}
@@ -95,9 +99,11 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 		SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
 #endif
 
+#ifndef PYRA
 		if (SDL_IsGameController(kJoystickIndex)) {
 			_controller = SDL_GameControllerOpen(kJoystickIndex);
 		}
+#endif
 		if (!_controller) {
 			_joystick = SDL_JoystickOpen(kJoystickIndex);
 		}
@@ -293,6 +299,12 @@ void SystemStub_SDL::processEvents() {
 				break;
 			case SDLK_SPACE:
 			case SDLK_RETURN:
+#ifdef PYRA
+			case SDLK_HOME:
+			case SDLK_PAGEUP:
+			case SDLK_END:
+			case SDLK_PAGEDOWN:
+#endif
 				_pi.action = false;
 				break;
 			case SDLK_LSHIFT:
@@ -350,6 +362,12 @@ void SystemStub_SDL::processEvents() {
 				break;
 			case SDLK_SPACE:
 			case SDLK_RETURN:
+#ifdef PYRA
+			case SDLK_HOME:
+			case SDLK_PAGEUP:
+			case SDLK_END:
+			case SDLK_PAGEDOWN:
+#endif
 				_pi.action = true;
 				break;
 			case SDLK_LSHIFT:
@@ -360,6 +378,7 @@ void SystemStub_SDL::processEvents() {
 				break;
 			}
 			break;
+#ifndef PYRA
 		case SDL_JOYHATMOTION:
 			if (_joystick) {
 				_pi.dirMask = 0;
@@ -399,12 +418,20 @@ void SystemStub_SDL::processEvents() {
 				}
 			}
 			break;
+#endif
 		case SDL_JOYBUTTONDOWN:
 		case SDL_JOYBUTTONUP:
 			if (_joystick) {
+#ifdef PYRA
+				if (ev.jbutton.button == 8) {
+					_pi.jump = (ev.jbutton.state == SDL_PRESSED);
+				}
+#else
 				_pi.action = (ev.jbutton.state == SDL_PRESSED);
+#endif
 			}
 			break;
+#ifndef PYRA
 		case SDL_CONTROLLERAXISMOTION:
 			if (_controller) {
 				switch (ev.caxis.axis) {
@@ -488,6 +515,7 @@ void SystemStub_SDL::processEvents() {
 				}
 			}
 			break;
+#endif
 		default:
 			break;
 		}

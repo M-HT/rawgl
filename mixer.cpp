@@ -399,7 +399,7 @@ struct Mixer_impl {
 	void playSound(uint8_t channel, int volume, Mix_Chunk *chunk, int loops = 0) {
 		stopSound(channel);
 		if (chunk) {
-			Mix_PlayChannel(channel, chunk, loops);
+			Mix_PlayChannelTimed(channel, chunk, loops, -1);
 		}
 		setChannelVolume(channel, volume);
 		_sounds[channel] = chunk;
@@ -585,7 +585,7 @@ struct Mixer_impl {
 			warning("AIFF sound %d is not preloaded", num);
 		} else {
 			Mix_Chunk *chunk = _preloads[num];
-			Mix_PlayChannel(channel, chunk, 0);
+			Mix_PlayChannelTimed(channel, chunk, 0, -1);
 			Mix_Volume(channel, volume * MIX_MAX_VOLUME / 63);
 		}
 	}
