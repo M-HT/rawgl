@@ -307,6 +307,34 @@ void Resource::dumpEntries() {
 	}
 }
 
+uint8_t getBitmapPalette(int resNum) {
+	switch(resNum) {
+	case 18:
+		return 4;
+	case 19:
+		return 9;
+	case 67:
+		return 6;
+	case 68:
+	case 69:
+	case 70:
+		return 8;
+	case 71:
+		return 15;
+	case 72:
+	case 73:
+		return 25;
+	case 83:
+		return 9;
+	case 144:
+		return 3;
+	case 145:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 void Resource::load() {
 	while (1) {
 		MemEntry *me = 0;
@@ -345,7 +373,7 @@ void Resource::load() {
 			debug(DBG_BANK, "Resource::load() bufPos=0x%X size=%d type=%d pos=0x%X bankNum=%d", memPtr - _memPtrStart, me->packedSize, me->type, me->bankPos, me->bankNum);
 			if (readBank(me, memPtr)) {
 				if (me->type == RT_BITMAP) {
-					_vid->copyBitmapPtr(_vidCurPtr, me->unpackedSize);
+					_vid->copyBitmapPtr(_vidCurPtr, me->unpackedSize, getBitmapPalette(resourceNum));
 					me->status = STATUS_NULL;
 				} else {
 					me->bufPtr = memPtr;
@@ -510,44 +538,12 @@ void Resource::loadBmp(int num) {
 		break;
 	case DT_MAC:
 		p = _mac->loadFile(num, 0, &size);
-		if (p) {
-			// set target palette for bitmap
-			switch(num) {
-			case 67:
-				*p = 6;
-				break;
-			case 68:
-			case 69:
-			case 70:
-				*p = 8;
-				break;
-			case 71:
-				*p = 15;
-				break;
-			case 72:
-			case 73:
-				*p = 25;
-				break;
-			case 83:
-				*p = 9;
-				break;
-			case 144:
-				*p = 3;
-				break;
-			case 145:
-				*p = 1;
-				break;
-			default:
-				*p = 0;
-				break;
-			}
-		}
 		break;
 	default:
 		break;
 	}
 	if (p) {
-		_vid->copyBitmapPtr(p, size);
+		_vid->copyBitmapPtr(p, size, getBitmapPalette(num));
 		free(p);
 	}
 }

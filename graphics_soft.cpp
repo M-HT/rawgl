@@ -46,7 +46,7 @@ struct GraphicsSoft: Graphics {
 	virtual void setPalette(const Color *colors, int count);
 	virtual void setSpriteAtlas(const uint8_t *src, int w, int h, int xSize, int ySize);
 	virtual void drawSprite(int buffer, int num, const Point *pt, uint8_t color);
-	virtual void drawBitmap(int buffer, const uint8_t *data, int w, int h, int fmt);
+	virtual void drawBitmap(int buffer, const uint8_t *data, int w, int h, int fmt, const Color *pal);
 	virtual void drawPoint(int buffer, uint8_t color, const Point *pt);
 	virtual void drawQuadStrip(int buffer, uint8_t color, const QuadStrip *qs);
 	virtual void drawStringChar(int buffer, uint8_t color, char c, const Point *pt);
@@ -350,7 +350,7 @@ void GraphicsSoft::drawSprite(int buffer, int num, const Point *pt, uint8_t colo
 	}
 }
 
-void GraphicsSoft::drawBitmap(int buffer, const uint8_t *data, int w, int h, int fmt) {
+void GraphicsSoft::drawBitmap(int buffer, const uint8_t *data, int w, int h, int fmt, const Color *pal) {
 	switch (_byteDepth) {
 	case 1:
 		if (fmt == FMT_CLUT && _w == w && _h == h) {

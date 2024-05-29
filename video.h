@@ -76,9 +76,10 @@ struct Video {
 	void setWorkPagePtr(uint8_t page);
 	void fillPage(uint8_t page, uint8_t color);
 	void copyPage(uint8_t src, uint8_t dst, int16_t vscroll);
-	void scaleBitmap(const uint8_t *src, int fmt);
-	void copyBitmapPtr(const uint8_t *src, uint32_t size = 0);
-	void changePal(uint8_t pal);
+	void scaleBitmap(const uint8_t *src, int fmt, Color pal[16]);
+	void copyBitmapPtr(const uint8_t *src, uint32_t size = 0, uint8_t palNum = 0);
+	void readPal(uint8_t palNum, Color pal[16]);
+	void changePal(uint8_t palNum);
 	void updateDisplay(uint8_t page, SystemStub *stub);
 	void captureDisplay();
 	void setPaletteColor(uint8_t color, int r, int g, int b);

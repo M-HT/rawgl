@@ -314,7 +314,7 @@ struct GraphicsGL : Graphics {
 	virtual void setPalette(const Color *colors, int count);
 	virtual void setSpriteAtlas(const uint8_t *src, int w, int h, int xSize, int ySize);
 	virtual void drawSprite(int listNum, int num, const Point *pt, uint8_t color);
-	virtual void drawBitmap(int listNum, const uint8_t *data, int w, int h, int fmt);
+	virtual void drawBitmap(int listNum, const uint8_t *data, int w, int h, int fmt, const Color *pal);
 	virtual void drawPoint(int listNum, uint8_t color, const Point *pt);
 	virtual void drawQuadStrip(int listNum, uint8_t color, const QuadStrip *qs);
 	virtual void drawStringChar(int listNum, uint8_t color, char c, const Point *pt);
@@ -512,11 +512,11 @@ void GraphicsGL::drawSprite(int listNum, int num, const Point *pt, uint8_t color
 	glScalef(1., 1., 1.);
 }
 
-void GraphicsGL::drawBitmap(int listNum, const uint8_t *data, int w, int h, int fmt) {
+void GraphicsGL::drawBitmap(int listNum, const uint8_t *data, int w, int h, int fmt, const Color *pal) {
 	_backgroundTex._fmt = fmt;
 	switch (fmt) {
 	case FMT_CLUT:
-		_backgroundTex.readRaw16(data, _pal, w, h);
+		_backgroundTex.readRaw16(data, pal, w, h);
 		break;
 	case FMT_RGB:
 		_backgroundTex.clear();

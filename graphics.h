@@ -57,7 +57,7 @@ struct Graphics {
 	virtual void setPalette(const Color *colors, int count) = 0;
 	virtual void setSpriteAtlas(const uint8_t *src, int w, int h, int xSize, int ySize) = 0;
 	virtual void drawSprite(int buffer, int num, const Point *pt, uint8_t color) = 0;
-	virtual void drawBitmap(int buffer, const uint8_t *data, int w, int h, int fmt) = 0;
+	virtual void drawBitmap(int buffer, const uint8_t *data, int w, int h, int fmt, const Color *pal) = 0;
 	virtual void drawPoint(int buffer, uint8_t color, const Point *pt) = 0;
 	virtual void drawQuadStrip(int buffer, uint8_t color, const QuadStrip *qs) = 0;
 	virtual void drawStringChar(int buffer, uint8_t color, char c, const Point *pt) = 0;

@@ -511,7 +511,7 @@ static void read_rectangle(const uint8_t *src, MacRect &rect) {
 	rect.right = READ_BE_UINT16(src + 6);
 }
 
-static void decode_pict_line8(int byteCount, const uint8_t *src, uint8_t *dst, int width, uint8_t *convpal) {
+static void decode_pict_line8(int byteCount, const uint8_t *src, uint8_t *dst, int width, const uint8_t *convpal) {
 	while (byteCount > 0 && width > 0) {
 		if (*src & 0x80) {
 			int runLength = 257 - *src++;
@@ -536,7 +536,7 @@ static void decode_pict_line8(int byteCount, const uint8_t *src, uint8_t *dst, i
 	};
 }
 
-static void decode_pict_line4(int byteCount, const uint8_t *src, uint8_t *dst, int width, uint8_t *convpal) {
+static void decode_pict_line4(int byteCount, const uint8_t *src, uint8_t *dst, int width, const uint8_t *convpal) {
 	while (byteCount > 0 && width > 0) {
 		if (*src & 0x80) {
 			int runLength = 257 - *src++;
@@ -563,7 +563,7 @@ static void decode_pict_line4(int byteCount, const uint8_t *src, uint8_t *dst, i
 	};
 }
 
-static void decode_pict(const uint8_t *src, int w, int h, uint8_t *dst, Color *dstpal) {
+static void decode_pict(const uint8_t *src, int w, int h, uint8_t *dst, const Color dstpal[16]) {
 	bool version2;
 	MacRect frame;
 	MacRect clip;
@@ -643,7 +643,7 @@ static void decode_pict(const uint8_t *src, int w, int h, uint8_t *dst, Color *d
 				src += 8;
 
 				// read bitmap pallete and match palette entries to target palette
-				for (int i = 0; i <= colorTable.ctSize; i++) {
+				for (int i = 0; i <= colorTable.ctSize; ++i) {
 					int16_t value = READ_BE_UINT16(src);
 					uint8_t r = READ_BE_UINT16(src + 2) >> 8;
 					uint8_t g = READ_BE_UINT16(src + 4) >> 8;
@@ -656,7 +656,7 @@ static void decode_pict(const uint8_t *src, int w, int h, uint8_t *dst, Color *d
 						continue;
 					}
 					int smallestDistance = 262144;
-					for (int j = 0; j < 16; j++) {
+					for (int j = 0; j < 16; ++j) {
 						int rd = dstpal[j].r - r;
 						int gd = dstpal[j].g - g;
 						int bd = dstpal[j].b - b;
@@ -732,52 +732,55 @@ static void decode_pict(const uint8_t *src, int w, int h, uint8_t *dst, Color *d
 	}
 }
 
-void Video::scaleBitmap(const uint8_t *src, int fmt) {
+void Video::scaleBitmap(const uint8_t *src, int fmt, Color pal[16]) {
 	if (_scaler) {
 		const int w = BITMAP_W * _scalerFactor;
 		const int h = BITMAP_H * _scalerFactor;
 		const int depth = (fmt == FMT_CLUT) ? 1 : 2;
 		_scaler->scale(_scalerFactor, depth, _scalerBuffer, w * depth, src, BITMAP_W * depth, BITMAP_W, BITMAP_H);
-		_graphics->drawBitmap(0, _scalerBuffer, w, h, fmt);
+		_graphics->drawBitmap(0, _scalerBuffer, w, h, fmt, pal);
 	} else {
-		_graphics->drawBitmap(0, src, BITMAP_W, BITMAP_H, fmt);
+		_graphics->drawBitmap(0, src, BITMAP_W, BITMAP_H, fmt, pal);
 	}
 }
 
-static void readPaletteAmiga(const uint8_t *buf, int num, Color pal[16]);
-
-void Video::copyBitmapPtr(const uint8_t *src, uint32_t size) {
+void Video::copyBitmapPtr(const uint8_t *src, uint32_t size, uint8_t palNum) {
+	Color pal[16];
+	if (!palNum || palNum >= 32) palNum = _currentPal;
 	if (_res->getDataType() == Resource::DT_DOS || _res->getDataType() == Resource::DT_AMIGA) {
+		readPal(palNum, pal);
 		decode_amiga(src, _tempBitmap);
-		scaleBitmap(_tempBitmap, FMT_CLUT);
+		scaleBitmap(_tempBitmap, FMT_CLUT, pal);
 	} else if (_res->getDataType() == Resource::DT_ATARI) {
+		readPal(palNum, pal);
 		decode_atari(src, _tempBitmap);
-		scaleBitmap(_tempBitmap, FMT_CLUT);
+		scaleBitmap(_tempBitmap, FMT_CLUT, pal);
 	} else if (_res->getDataType() == Resource::DT_WIN31) {
+		readPal(palNum, pal);
 		yflip(src, BITMAP_W, BITMAP_H, _tempBitmap);
-		scaleBitmap(_tempBitmap, FMT_CLUT);
+		scaleBitmap(_tempBitmap, FMT_CLUT, pal);
 	} else if (_res->getDataType() == Resource::DT_3DO) {
 		deinterlace555(src, BITMAP_W, BITMAP_H, _bitmap555);
-		scaleBitmap((const uint8_t *)_bitmap555, FMT_RGB555);
+		scaleBitmap((const uint8_t *)_bitmap555, FMT_RGB555, 0);
 	} else if (_res->getDataType() == Resource::DT_MAC) {
-		Color pal[16];
-		readPaletteAmiga(_res->_segVideoPal, src[0] ? src[0] : _currentPal, pal); // read target palette for bitmap
+		readPal(palNum, pal);
 		decode_pict(src, BITMAP_W, BITMAP_H, _tempBitmap, pal);
-		scaleBitmap(_tempBitmap, FMT_CLUT);
+		scaleBitmap(_tempBitmap, FMT_CLUT, pal);
 	} else { // .BMP
 		if (Graphics::_is1991) {
 			const int w = READ_LE_UINT32(src + 0x12);
 			const int h = READ_LE_UINT32(src + 0x16);
 			if (w == BITMAP_W && h == BITMAP_H) {
 				const uint8_t *data = src + READ_LE_UINT32(src + 0xA);
+				readPal(palNum, pal);
 				yflip(data, w, h, _tempBitmap);
-				scaleBitmap(_tempBitmap, FMT_CLUT);
+				scaleBitmap(_tempBitmap, FMT_CLUT, pal);
 			}
 		} else {
 			int w, h;
 			uint8_t *buf = decode_bitmap(src, false, -1, &w, &h);
 			if (buf) {
-				_graphics->drawBitmap(_buffers[0], buf, w, h, FMT_RGB);
+				_graphics->drawBitmap(_buffers[0], buf, w, h, FMT_RGB, 0);
 				free(buf);
 			}
 		}
@@ -842,18 +845,22 @@ static void readPaletteAmiga(const uint8_t *buf, int num, Color pal[16]) {
 	}
 }
 
+void Video::readPal(uint8_t palNum, Color pal[16]) {
+	if (_res->getDataType() == Resource::DT_WIN31) {
+		readPaletteWin31(_res->_segVideoPal, palNum, pal);
+	} else if (_res->getDataType() == Resource::DT_3DO) {
+		readPalette3DO(_res->_segVideoPal, palNum, pal);
+	} else if (_res->getDataType() == Resource::DT_DOS && _useEGA) {
+		readPaletteEGA(_res->_segVideoPal, palNum, pal);
+	} else {
+		readPaletteAmiga(_res->_segVideoPal, palNum, pal);
+	}
+}
+
 void Video::changePal(uint8_t palNum) {
 	if (palNum < 32 && palNum != _currentPal) {
 		Color pal[16];
-		if (_res->getDataType() == Resource::DT_WIN31) {
-			readPaletteWin31(_res->_segVideoPal, palNum, pal);
-		} else if (_res->getDataType() == Resource::DT_3DO) {
-			readPalette3DO(_res->_segVideoPal, palNum, pal);
-		} else if (_res->getDataType() == Resource::DT_DOS && _useEGA) {
-			readPaletteEGA(_res->_segVideoPal, palNum, pal);
-		} else {
-			readPaletteAmiga(_res->_segVideoPal, palNum, pal);
-		}
+		readPal(palNum, pal);
 		_graphics->setPalette(pal, 16);
 		_currentPal = palNum;
 	}
