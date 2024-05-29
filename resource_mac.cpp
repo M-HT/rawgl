@@ -1,4 +1,5 @@
 
+#include <dirent.h>
 #include <sys/stat.h>
 #include "file.h"
 #include "resource_mac.h"
@@ -20,17 +21,27 @@ ResourceMac::ResourceMac(const char *filePath)
 	const char *sep = strrchr(filePath, '/');
 	if (sep) {
 		const size_t len = 1 + sep - filePath;
-		_dataPath = (char *)malloc(len + 5);
-		if (_dataPath) {
-			memcpy(_dataPath, filePath, len);
-			strcpy(_dataPath + len, "data");
-			struct stat s;
-			if (!(stat(_dataPath, &s) == 0 && S_ISDIR(s.st_mode))) {
-				strcpy(_dataPath + len, "Data");
-				if (!(stat(_dataPath, &s) == 0 && S_ISDIR(s.st_mode))) {
-					free(_dataPath);
-					_dataPath = 0;
+		char *dataPath = (char *)malloc(len + 5);
+		if (dataPath) {
+			memcpy(dataPath, filePath, len);
+			dataPath[len] = 0;
+			DIR *d = opendir(dataPath);
+			if (d) {
+				dirent *de;
+				while ((de = readdir(d)) != NULL) {
+					if (strcasecmp(de->d_name, "data") == 0) {
+						strcpy(dataPath + len, de->d_name);
+						struct stat s;
+						if (stat(dataPath, &s) == 0 && S_ISDIR(s.st_mode)) {
+							_dataPath = dataPath;
+							break;
+						}
+					}
 				}
+				closedir(d);
+			}
+			if (!_dataPath) {
+				free(dataPath);
 			}
 		}
 	}

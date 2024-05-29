@@ -715,6 +715,9 @@ void Resource::setupPart(int ptrId) {
 						_nth->preloadDat(ptrId - 16000, i, num);
 					}
 					*segments[i] = loadDat(num);
+					if (!*segments[i]) {
+						error("Unable to read resource %d in part %d", num, ptrId);
+					}
 				}
 			}
 			_currentPart = ptrId;
