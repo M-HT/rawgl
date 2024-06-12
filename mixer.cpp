@@ -240,6 +240,7 @@ struct Mixer_impl {
 	SfxPlayer *_sfx;
 	std::map<int, Mix_Chunk *> _preloads; // AIFF preloads (3DO)
 	MixerType _mixerType;
+	SDL_AudioDeviceID _audioDevice;
 
 #ifdef USE_LIBADLMIDI
 	struct ADL_MIDIPlayer *_adlHandle;
@@ -287,6 +288,13 @@ struct Mixer_impl {
 #endif
 		if (Mix_OpenAudio(kMixFreq, kMixFormat, kMixSoundChannels, kMixBufSize) < 0) {
 			warning("Mix_OpenAudio failed: %s", Mix_GetError());
+		}
+		_audioDevice = 0;
+		for (int i = 16; i >= 1; --i) {
+			if (SDL_GetAudioDeviceStatus(i) != SDL_AUDIO_STOPPED) {
+				_audioDevice = i;
+				break;
+			}
 		}
 		switch (mixerType) {
 		case kMixerTypeRaw:
@@ -372,15 +380,27 @@ struct Mixer_impl {
 		}
 	}
 
+	void lockAudio() {
+		if (_audioDevice) {
+			SDL_LockAudioDevice(_audioDevice);
+		}
+	}
+
+	void unlockAudio() {
+		if (_audioDevice) {
+			SDL_UnlockAudioDevice(_audioDevice);
+		}
+	}
+
 	void playSoundRaw(uint8_t channel, const uint8_t *data, int freq, uint8_t volume) {
-		SDL_LockAudio();
+		lockAudio();
 		_channels[channel].initRaw(data, freq, volume, kMixFreq);
-		SDL_UnlockAudio();
+		unlockAudio();
 	}
 	void playSoundMac(uint8_t channel, const uint8_t *data, int freq, uint8_t volume) {
-		SDL_LockAudio();
+		lockAudio();
 		_channels[channel].initMac(data, freq, volume, kMixFreq);
-		SDL_UnlockAudio();
+		unlockAudio();
 	}
 	void playSoundWav(uint8_t channel, const uint8_t *data, int freq, uint8_t volume, bool loop) {
 		int wavFreq, len;
@@ -392,9 +412,9 @@ struct Mixer_impl {
 			freq = (int)(freq * (wavFreq / 9943.0f));
 		}
 
-		SDL_LockAudio();
+		lockAudio();
 		_channels[channel].initWav(wavData, freq, volume, kMixFreq, len, bits16, stereo, loop);
-		SDL_UnlockAudio();
+		unlockAudio();
 	}
 	void playSound(uint8_t channel, int volume, Mix_Chunk *chunk, int loops = 0) {
 		stopSound(channel);
@@ -405,9 +425,9 @@ struct Mixer_impl {
 		_sounds[channel] = chunk;
 	}
 	void stopSound(uint8_t channel) {
-		SDL_LockAudio();
+		lockAudio();
 		_channels[channel]._data = 0;
-		SDL_UnlockAudio();
+		unlockAudio();
 		Mix_HaltChannel(channel);
 		freeSound(channel);
 	}
@@ -416,9 +436,9 @@ struct Mixer_impl {
 		_sounds[channel] = 0;
 	}
 	void setChannelVolume(uint8_t channel, uint8_t volume) {
-		SDL_LockAudio();
+		lockAudio();
 		_channels[channel]._volume = volume;
-		SDL_UnlockAudio();
+		unlockAudio();
 		Mix_Volume(channel, volume * MIX_MAX_VOLUME / 63);
 	}
 
@@ -427,13 +447,13 @@ struct Mixer_impl {
 #ifdef USE_LIBADLMIDI
 		if (_mixerType == kMixerTypeWavMidi) {
 			if (_adlHandle) {
-				SDL_LockAudio();
+				lockAudio();
 				if (adl_openFile(_adlHandle, path)) {
 					warning("Failed to load music '%s', %s", path, adl_errorInfo(_adlHandle));
 				} else {
 					_adlPlaying = true;
 				}
-				SDL_UnlockAudio();
+				unlockAudio();
 			}
 			return;
 		}
@@ -454,10 +474,10 @@ struct Mixer_impl {
 #ifdef USE_LIBADLMIDI
 		if (_mixerType == kMixerTypeWavMidi) {
 			if (_adlHandle) {
-				SDL_LockAudio();
+				lockAudio();
 				adl_reset(_adlHandle);
 				_adlPlaying = false;
-				SDL_UnlockAudio();
+				unlockAudio();
 			}
 			return;
 		}
@@ -478,18 +498,18 @@ struct Mixer_impl {
 	}
 
 	void playSfxMusic(SfxPlayer *sfx) {
-		SDL_LockAudio();
+		lockAudio();
 		_sfx = sfx;
 		_sfx->play(kMixFreq);
-		SDL_UnlockAudio();
+		unlockAudio();
 	}
 	void stopSfxMusic() {
-		SDL_LockAudio();
+		lockAudio();
 		if (_sfx) {
 			_sfx->stop();
 			_sfx = 0;
 		}
-		SDL_UnlockAudio();
+		unlockAudio();
 	}
 
 	void mixChannels(int16_t *samples, int count) {
