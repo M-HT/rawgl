@@ -85,6 +85,7 @@ static const AmigaMemEntry *detectAmigaAtari(File &f, const char *dataDir) {
 		{ 244674, Resource::_memListAmigaFR },
 		{ 244868, Resource::_memListAmigaEN },
 		{ 227142, Resource::_memListAtariEN },
+		{ 227096, Resource::_memListAtariEN2 },
 		{ 0, 0 }
 	};
 	if (f.open("bank01", dataDir)) {
@@ -118,7 +119,7 @@ void Resource::detectVersion() {
 		_dataType = DT_DOS;
 		debug(DBG_INFO, "Using DOS data files");
 	} else if ((_amigaMemList = detectAmigaAtari(f, _dataDir)) != 0) {
-		if (_amigaMemList == _memListAtariEN) {
+		if (_amigaMemList == _memListAtariEN || _amigaMemList == _memListAtariEN2) {
 			_dataType = DT_ATARI;
 			debug(DBG_INFO, "Using Atari data files");
 		} else {
