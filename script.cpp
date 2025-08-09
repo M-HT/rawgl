@@ -807,10 +807,15 @@ void Script::snd_playSound(uint16_t resNum, uint8_t freq, uint8_t vol, uint8_t c
 			}
 		}
 		break;
+	case Resource::DT_DOS:
+		if (_mix->hasMt32() && _mix->hasMt32SoundMapping(resNum)) {
+			_mix->playSoundMt32(resNum);
+			break;
+		}
+		/* fall-through */
 	case Resource::DT_AMIGA:
 	case Resource::DT_ATARI:
-	case Resource::DT_ATARI_DEMO:
-	case Resource::DT_DOS: {
+	case Resource::DT_ATARI_DEMO: {
 			MemEntry *me = &_res->_memList[resNum];
 			if (me->status == Resource::STATUS_LOADED) {
 				_mix->playSoundRaw(channel, me->bufPtr, getSoundFreq(freq), vol);

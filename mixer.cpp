@@ -12,6 +12,8 @@
 #include "mixer_platform.h"
 #include "sfxplayer.h"
 #include "util.h"
+#define MT32EMU_API_TYPE 1
+#include <mt32emu.h>
 
 #ifdef USE_LIBADLMIDI
 	#include "adlmidi.h"
@@ -241,6 +243,7 @@ struct Mixer_impl {
 	std::map<int, Mix_Chunk *> _preloads; // AIFF preloads (3DO)
 	MixerType _mixerType;
 	SDL_AudioDeviceID _audioDevice;
+	mt32emu_context _mt32;
 
 #ifdef USE_LIBADLMIDI
 	struct ADL_MIDIPlayer *_adlHandle;
@@ -255,6 +258,7 @@ struct Mixer_impl {
 			_channels[i]._mixWav = &MixerChannel::mixWav<8, false>;
 		}
 		_sfx = 0;
+		_mt32 = 0;
 		_mixerType = mixerType;
 
 		int flags = 0;
@@ -316,10 +320,25 @@ struct Mixer_impl {
 		case kMixerTypeAiff:
 			Mix_AllocateChannels(kMixChannels);
 			break;
+		case kMixerTypeMt32: {
+				mt32emu_report_handler_i report = { 0 };
+				_mt32 = mt32emu_create_context(report, this);
+				mt32emu_add_rom_file(_mt32, "CM32L_CONTROL.ROM");
+				mt32emu_add_rom_file(_mt32, "CM32L_PCM.ROM");
+				mt32emu_set_stereo_output_samplerate(_mt32, kMixFreq);
+				mt32emu_open_synth(_mt32);
+				mt32emu_set_midi_delay_mode(_mt32, MT32EMU_MDM_IMMEDIATE);
+			}
+			Mix_HookMusic(mixAudioMt32, this);
+			break;
 		}
 	}
 	void quit() {
 		stopAll();
+		if (_mixerType == kMixerTypeMt32) {
+			mt32emu_close_synth(_mt32);
+			mt32emu_free_context(_mt32);
+		}
 		Mix_CloseAudio();
 		Mix_Quit();
 #ifdef USE_LIBADLMIDI
@@ -425,11 +444,53 @@ struct Mixer_impl {
 		_sounds[channel] = chunk;
 	}
 	void stopSound(uint8_t channel) {
+		if (_mixerType == kMixerTypeMt32) {
+			stopSoundMt32();
+		}		
 		lockAudio();
 		_channels[channel]._data = 0;
 		unlockAudio();
 		Mix_HaltChannel(channel);
 		freeSound(channel);
+	}
+	static const uint8_t *findMt32Sound(int num) {
+		for (const uint8_t *data = Mixer::_mt32SoundsTable; data[0]; data += 4) {
+			if (data[0] == num) {
+				return data;
+			}
+		}
+		return 0;
+	}
+	void playSoundMt32(int num) {
+		const uint8_t *data = findMt32Sound(num);
+		if (data) {
+			for (; data[0] == num; data += 4) {
+				int8_t note = data[1];
+
+				uint32_t noteOn = 0x99;
+				noteOn |= ABS(note) << 8;
+				noteOn |= 0x7f << 16;
+				mt32emu_play_msg(_mt32, noteOn);
+
+				uint32_t pitchBend = 0xe9;
+				pitchBend |= (READ_LE_UINT16(data) & 0x7f) << 8;
+				pitchBend |= (0x3f80 >> 7) << 16;
+				mt32emu_play_msg(_mt32, pitchBend);
+
+				if (note < 0) {
+					uint32_t noteVel = 0x99;
+					noteVel |= ABS(note) << 8;
+					noteVel |= 0 << 16;
+					mt32emu_play_msg(_mt32, noteVel);
+				}
+			}
+		}
+	}
+	void stopSoundMt32() {
+		uint32_t controlChange = 0xb9;
+		controlChange |= 0x7b << 8;
+		controlChange |= 0 << 16;
+		mt32emu_play_msg(_mt32, controlChange);
 	}
 	void freeSound(int channel) {
 		Mix_FreeChunk(_sounds[channel]);
@@ -572,6 +633,15 @@ struct Mixer_impl {
 		mixer->mixChannelsWav((int16_t *)s16buf, len / sizeof(int16_t));
 	}
 
+	static void mixAudioMt32(void *data, uint8_t *s16buf, int len) {
+		Mixer_impl *mixer = (Mixer_impl *)data;
+		mt32emu_render_bit16s(mixer->_mt32, (int16_t *)s16buf, len / (2 * sizeof(int16_t)));
+		mixer->mixChannels((int16_t *)s16buf, len / sizeof(int16_t));
+		if (mixer->_sfx) {
+			mixer->_sfx->readSamples((int16_t *)s16buf, len / sizeof(int16_t));
+		}
+	}
+
 	void stopAll() {
 		for (int i = 0; i < kMixChannels; ++i) {
 			stopSound(i);
@@ -635,8 +705,16 @@ void Mixer::update() {
 	}
 }
 
+bool Mixer::hasMt32() const {
+	return _impl && (_impl->_mixerType == kMixerTypeMt32);
+}
+
+bool Mixer::hasMt32SoundMapping(int num) {
+	return Mixer_impl::findMt32Sound(num) != 0;
+}
+
 void Mixer::playSoundRaw(uint8_t channel, const uint8_t *data, uint16_t freq, uint8_t volume) {
-	debug(DBG_SND, "Mixer::playChannel(%d, %d, %d)", channel, freq, volume);
+	debug(DBG_SND, "Mixer::playSoundRaw(%d, %d, %d)", channel, freq, volume);
 	if (_impl) {
 		return _impl->playSoundRaw(channel, data, freq, volume);
 	}
@@ -657,9 +735,16 @@ void Mixer::playSoundWav(uint8_t channel, const uint8_t *data, uint16_t freq, ui
 }
 
 void Mixer::stopSound(uint8_t channel) {
-	debug(DBG_SND, "Mixer::stopChannel(%d)", channel);
+	debug(DBG_SND, "Mixer::stopSound(%d)", channel);
 	if (_impl) {
 		return _impl->stopSound(channel);
+	}
+}
+
+void Mixer::playSoundMt32(int num) {
+	debug(DBG_SND, "Mixer::playSoundMt32(%d)", num);
+	if (_impl) {
+		return _impl->playSoundMt32(num);
 	}
 }
 

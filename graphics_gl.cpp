@@ -273,7 +273,7 @@ struct DrawList {
 			e.color = color;
 			e.numVertices = count;
 			for (int i = 0; i < count; ++i) {
-				e.vertices[i] = vertices[i];
+				e.vertices[i] = *vertices++;
 			}
 			entries.push_back(e);
 		}

@@ -16,7 +16,7 @@ ifndef NO_GL
 endif
 
 CXXFLAGS := -g -O -MMD -Wall -Wpedantic $(SDL_CFLAGS) $(DEFINES)
-LIBS := -lz
+LIBS := -lz -lmt32emu
 ifdef USE_LIBADLMIDI
 	CXXFLAGS += -DUSE_LIBADLMIDI
 	LIBS += -lADLMIDI

@@ -23,6 +23,7 @@ struct Engine {
 		kStateLogo3DO,
 		kStateTitle3DO,
 		kStateEnd3DO,
+		kStateLogoWin31,
 		kStateGame
 	};
 
@@ -43,7 +44,7 @@ struct Engine {
 	const char *getGameTitle(Language lang) const { return _res.getGameTitle(lang); }
 
 	void run();
-	void setup(Language lang, int graphicsType, const char *scalerName, int scalerFactor);
+	void setup(Language lang, int graphicsType, const char *scalerName, int scalerFactor, bool useMT32);
 	void finish();
 	void processInput();
 
@@ -53,7 +54,9 @@ struct Engine {
 	void playCinepak(const char *name);
 	void scrollText(int a, int b, const char *text);
 	void titlePage();
-	
+
+	void doWin31Logos();
+
 	void saveGameState(uint8_t slot, const char *desc);
 	void loadGameState(uint8_t slot);
 };

@@ -28,6 +28,7 @@ static const char USAGE[] =
 	"  --demo3-joy       Use inputs from 'demo3.joy' (DOS demo)\n"
 	"  --difficulty=DIFF Difficulty (easy,normal,hard)\n"
 	"  --audio=AUDIO     Audio (original,remastered)\n"
+	"  --mt32            Use MT32 sounds mapping with DOS version\n"
 	;
 
 static const struct {
@@ -89,7 +90,6 @@ static int getGraphicsType(Resource::DataType type) {
 	switch (type) {
 	case Resource::DT_15TH_EDITION:
 	case Resource::DT_20TH_EDITION:
-	case Resource::DT_3DO:
 		return GRAPHICS_GL;
 	default:
 		return GRAPHICS_ORIGINAL;
@@ -131,6 +131,7 @@ int main(int argc, char *argv[]) {
 	scaler.factor = 1;
 	bool defaultGraphics = true;
 	bool demo3JoyInputs = false;
+	bool useMT32 = false;
 	if (argc == 2) {
 		// data path as the only command line argument
 		struct stat st;
@@ -152,6 +153,7 @@ int main(int argc, char *argv[]) {
 			{ "demo3-joy",  no_argument,     0, 'j' },
 			{ "difficulty", required_argument, 0, 'i' },
 			{ "audio",    required_argument, 0, 'u' },
+			{ "mt32",       no_argument,     0, 'm' },
 			{ "help",       no_argument,     0, 'h' },
 			{ 0, 0, 0, 0 }
 		};
@@ -219,6 +221,9 @@ int main(int argc, char *argv[]) {
 				Script::_useRemasteredAudio = false;
 			}
 			break;
+		case 'm':
+			useMT32 = true;
+			break;
 		case 'h':
 			// fall-through
 		default:
@@ -230,7 +235,7 @@ int main(int argc, char *argv[]) {
 	g_debugMask = DBG_INFO; // | DBG_VIDEO | DBG_SND | DBG_SCRIPT | DBG_BANK | DBG_SER;
 	Engine *e = new Engine(dataPath, part);
 	if (defaultGraphics) {
-		// if not set, use original software graphics for 199x editions and GL for the anniversary and 3DO versions
+		// if not set, use original software graphics for 199x and 3DO versions and GL for the anniversary releases
 		graphicsType = getGraphicsType(e->_res.getDataType());
 		dm.opengl = (graphicsType == GRAPHICS_GL);
 	}
@@ -265,7 +270,7 @@ int main(int argc, char *argv[]) {
 	if (demo3JoyInputs && e->_res.getDataType() == Resource::DT_DOS) {
 		e->_res.readDemo3Joy();
 	}
-	e->setup(lang, graphicsType, scaler.name, scaler.factor);
+	e->setup(lang, graphicsType, scaler.name, scaler.factor, useMT32);
 	while (!stub->_pi.quit) {
 		e->run();
 	}
