@@ -12,8 +12,11 @@
 #include "mixer_platform.h"
 #include "sfxplayer.h"
 #include "util.h"
-#define MT32EMU_API_TYPE 1
-#include <mt32emu.h>
+
+#ifdef USE_MT32EMU
+	#define MT32EMU_API_TYPE 1
+	#include <mt32emu.h>
+#endif
 
 #ifdef USE_LIBADLMIDI
 	#include "adlmidi.h"
@@ -243,7 +246,10 @@ struct Mixer_impl {
 	std::map<int, Mix_Chunk *> _preloads; // AIFF preloads (3DO)
 	MixerType _mixerType;
 	SDL_AudioDeviceID _audioDevice;
+
+#ifdef USE_MT32EMU
 	mt32emu_context _mt32;
+#endif
 
 #ifdef USE_LIBADLMIDI
 	struct ADL_MIDIPlayer *_adlHandle;
@@ -258,7 +264,9 @@ struct Mixer_impl {
 			_channels[i]._mixWav = &MixerChannel::mixWav<8, false>;
 		}
 		_sfx = 0;
+#ifdef USE_MT32EMU
 		_mt32 = 0;
+#endif
 		_mixerType = mixerType;
 
 		int flags = 0;
@@ -320,7 +328,9 @@ struct Mixer_impl {
 		case kMixerTypeAiff:
 			Mix_AllocateChannels(kMixChannels);
 			break;
-		case kMixerTypeMt32: {
+		case kMixerTypeMt32:
+#ifdef USE_MT32EMU
+			{
 				mt32emu_report_handler_i report = { 0 };
 				_mt32 = mt32emu_create_context(report, this);
 				mt32emu_add_rom_file(_mt32, "CM32L_CONTROL.ROM");
@@ -330,15 +340,20 @@ struct Mixer_impl {
 				mt32emu_set_midi_delay_mode(_mt32, MT32EMU_MDM_IMMEDIATE);
 			}
 			Mix_HookMusic(mixAudioMt32, this);
+#else
+			Mix_HookMusic(mixAudio, this);
+#endif
 			break;
 		}
 	}
 	void quit() {
 		stopAll();
+#ifdef USE_MT32EMU
 		if (_mixerType == kMixerTypeMt32) {
 			mt32emu_close_synth(_mt32);
 			mt32emu_free_context(_mt32);
 		}
+#endif
 		Mix_CloseAudio();
 		Mix_Quit();
 #ifdef USE_LIBADLMIDI
@@ -446,7 +461,7 @@ struct Mixer_impl {
 	void stopSound(uint8_t channel) {
 		if (_mixerType == kMixerTypeMt32) {
 			stopSoundMt32();
-		}		
+		}
 		lockAudio();
 		_channels[channel]._data = 0;
 		unlockAudio();
@@ -462,6 +477,7 @@ struct Mixer_impl {
 		return 0;
 	}
 	void playSoundMt32(int num) {
+#ifdef USE_MT32EMU
 		const uint8_t *data = findMt32Sound(num);
 		if (data) {
 			for (; data[0] == num; data += 4) {
@@ -485,12 +501,15 @@ struct Mixer_impl {
 				}
 			}
 		}
+#endif
 	}
 	void stopSoundMt32() {
+#ifdef USE_MT32EMU
 		uint32_t controlChange = 0xb9;
 		controlChange |= 0x7b << 8;
 		controlChange |= 0 << 16;
 		mt32emu_play_msg(_mt32, controlChange);
+#endif
 	}
 	void freeSound(int channel) {
 		Mix_FreeChunk(_sounds[channel]);
@@ -633,6 +652,7 @@ struct Mixer_impl {
 		mixer->mixChannelsWav((int16_t *)s16buf, len / sizeof(int16_t));
 	}
 
+#ifdef USE_MT32EMU
 	static void mixAudioMt32(void *data, uint8_t *s16buf, int len) {
 		Mixer_impl *mixer = (Mixer_impl *)data;
 		mt32emu_render_bit16s(mixer->_mt32, (int16_t *)s16buf, len / (2 * sizeof(int16_t)));
@@ -641,6 +661,7 @@ struct Mixer_impl {
 			mixer->_sfx->readSamples((int16_t *)s16buf, len / sizeof(int16_t));
 		}
 	}
+#endif
 
 	void stopAll() {
 		for (int i = 0; i < kMixChannels; ++i) {
